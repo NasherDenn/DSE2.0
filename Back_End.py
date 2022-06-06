@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
+import sys
 
 from docx import Document
-import pandas as pd
+# import pandas as pd
 import re
 import sqlite3
+from PyQt5.QtSql import QSqlDatabase, QSqlQuery
+from PyQt5.QtWidgets import QApplication, QMessageBox, QLabel
+import sys
+import GUI
 
 doc = Document(r'C:\Users\asus\Documents\NDT YKR\NDT\REPORTS 2021\04-YKR-ON-UTT-21-788 (KUT 560) 8.12ap.docx')
 
 # Извлекаем необходимые данные из  репорта
 all_tables = doc.tables
-
 # создаем пустой словарь под данные таблиц
 data_tables = {i: None for i in range(len(all_tables))}
 
@@ -21,17 +25,12 @@ for i, table in enumerate(all_tables):
         for cell in row.cells:
             data_tables[i][j].append(cell.text)
 
-# снимаем ограничения на вывод таблицы
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_colwidth', None)
-
 # Словарь очищенных таблиц с данными
 clear_tables = {}
 # Число таблиц с очищенными данными
 number_clear_tables = 0
-
 # проходим по всем найденным таблицам (спискам списков)
+
 for i in data_tables:
     # проходим по всем  спискам
     for ii in data_tables[i]:
@@ -41,7 +40,6 @@ for i in data_tables:
             if re.match(r'Nominal thickness', iii) or re.match(r'DIA', iii):
                 clear_tables[number_clear_tables] = data_tables[i]
                 number_clear_tables += 1
-
 
 # Извлекаем номер и дату репорта из верхнего колонтитула
 h = doc.sections[0].header.tables
@@ -59,6 +57,7 @@ for i, table in enumerate(h):
 pp = 0
 # словарь номера репорта, даты репорта, номер ворк ордера
 rep_number = {}
+
 for i in data_header[0]:
     p = 0
     for ii in i:
@@ -71,9 +70,9 @@ for i in data_header[0]:
         p += 1
     pp += 1
 
-
 # количество очищенных таблиц с данными
 len_tables = len(clear_tables)
+
 # очистка таблиц
 for i in range(len(clear_tables)):
     for ii in clear_tables[i]:
@@ -82,26 +81,21 @@ for i in range(len(clear_tables)):
             clear_tables[i].pop(0)
 
 
-# формируем таблицы
-for i in range(len(clear_tables)):
-    s = pd.DataFrame(clear_tables[i])
-    # s = s.drop(index=[0])
-    # print(s)
-
-# # подключаем базу данных
-# connection = sqlite3.connect('reports_BD.db')
-# conn = sqlite3.connect('reports_BD.db')
-# cur = conn.cursor()
-#
-# cur.execute("""CREATE TABLE IF NOT EXISTS users(
-#    'Line / Tag N / Номер' INT PRIMARY KEY,
-#    'Item description / Участок контроля' TEXT,
-#    'Section number / Номер сечения' TEXT,);
-# """)
-# conn.commit()
-#
-# cur.execute("""INSERT INTO users('Line / Tag N / Номер', 'Item description / Участок контроля', 'Section number / Номер сечения')
-#    VALUES('00001', 'Alex', 'Smith');
-# """)
-# conn.commit()
-
+# подключаем базу данных
+con = QSqlDatabase.addDatabase('QSQLITE')
+con.setDatabaseName('Reports_DB')
+app = QApplication(sys.argv)
+if not con.open():
+    QMessageBox(None, 'App Name - Error!', 'Database Error: %s' % con.lastError().databaseText())
+    sys(exit(1))
+createTableQuery = QSqlQuery()
+createTableQuery.exec(
+    """
+    CREATE TABLE contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
+        name VARCHAR(40) NOT NULL,
+        job VARCHAR(50),
+        email VARCHAR(40) NOT NULL
+    )
+    """
+)
