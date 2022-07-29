@@ -8,12 +8,19 @@ import sqlite3
 
 def add_table():
     # задаём папку для поиска репортов с расширением docx для Word 2013 и старше
-    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
-    # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2020\*.docx'
+    # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
+    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2020\*.docx'
 
     # присваиваем переменной список найденных файлов с расширением docx
     list_find_docx = glob.glob(target_dir_docx)
 
+    # переменные для сводки итоговых данных
+    # количество репортов
+    total_reports = len(list_find_docx)
+    # количество таблиц
+    total_tables = 0
+    # количество полностью обработанных таблиц
+    full_processed_tables = 0
     # счётчик репортов с пустыми таблицами
     zero_table = 0
     # список репортов с пустыми таблицами
@@ -131,7 +138,6 @@ def add_table():
                             del_res_top = ii + 1
                 for iiii in range(del_res_top, len(clear_tables[i])):
                     clear_table_top[i] = clear_tables[i][del_res_top:]
-
             # очищенный (с конца таблицы) словарь с данными
             clear_table_bottom = {}
             # фильтруем отфильтрованную таблицу сверху (clear_table_top), выбирая только данные, находящиеся выше
@@ -185,6 +191,9 @@ def add_table():
                             del_start_table += 1
             if del_start_table > 0:
                 del clear_table_bottom[0]
+
+            # считаем количество таблиц
+            total_tables += len(clear_table_bottom.keys())
 
             # список пустых таблиц для сводки итоговых данных
             if clear_table_bottom == {}:
@@ -469,15 +478,21 @@ def add_table():
                         continue
                 conn.commit()
 
+            # количество полностью обработанных таблиц
+            full_processed_tables = len(cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall())
+            # список обработанных таблиц
+            list_full_processed_tables = cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall()
+
             # закрываем соединение с базой данной
             conn.close()
     # сводка итоговых данных
     print('------------------------------------------------------------------------------------------------')
-    print('Всего найдено файлов docx: ' + str(len(list_find_docx)))
-    print('Из них репортов обработано: ' + str(len(list_find_docx) - len(set(list_cells)) -
-                                               len(set(list_distract_structure)) - len(set(dont_save_tables))))
-    print('Из них репортов с ошибками: ' + str(len(set(list_cells)) + len(set(list_distract_structure)) +
-                                               len(set(dont_save_tables))))
+    print('Количество репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
+    print('Количество обработанных/необработанных таблиц: ' + str(full_processed_tables) + '/' +
+          str(total_tables - full_processed_tables))
+    print('Список обработанных таблиц: ')
+    for i in list_full_processed_tables:
+        print(i)
     print('------------------------------------------------------------------------------------------------')
     print('Ошибки в репорте: ' + str(len(set(list_cells))))
     for i in range(len(message_mistake)):
