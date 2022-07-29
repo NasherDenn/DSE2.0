@@ -8,8 +8,8 @@ import sqlite3
 
 def add_table():
     # задаём папку для поиска репортов с расширением docx для Word 2013 и старше
-    # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
-    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2020\*.docx'
+    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
+    # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2020\*.docx'
 
     # присваиваем переменной список найденных файлов с расширением docx
     list_find_docx = glob.glob(target_dir_docx)
@@ -426,30 +426,51 @@ def add_table():
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, b)
 
+            # очищаем таблицу данных clear_table_bottom
+            for i in list(clear_table_bottom.keys()):
+                for ii in range(len(clear_table_bottom[i])):
+                    for iii in range(len(clear_table_bottom[i][ii])):
+                        if re.findall(r'"', clear_table_bottom[i][ii][iii]):
+                            b = re.sub(r'"', '', clear_table_bottom[i][ii][iii])
+                            clear_table_bottom[i][ii].remove(clear_table_bottom[i][ii][iii])
+                            clear_table_bottom[i][ii].insert(iii, b)
+
             # создаём подключение к базе данных
             conn = sqlite3.connect('reports_db.db')
             cur = conn.cursor()
             for i in list(clear_table_bottom.keys()):
                 # собираем название таблицы
                 name_clear_table = '\'' + str(i) + '_' + rep_number['report_number'] + '\''
-                # создаём таблицу с именем переменной, добавляем порядковый номер таблицы
-                cur.execute('CREATE TABLE IF NOT EXISTS ' + name_clear_table + '(l)')
-                # добавляем название столбцов
-                for ii in range(len(name_column[i])):
+                try:
+                    # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
+                    cur.execute('CREATE TABLE ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
+                    conn.commit()
+                except sqlite3.OperationalError:
+                    mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
+                    message_column.append(mess)
+                    dont_save_tables.append(name_clear_table)
+                    # сохраняем внесённые изменения, если не было ошибок в репорте
+                    conn.commit()
+                for ii in clear_table_bottom[i]:
                     try:
-                        cur.execute('ALTER TABLE ' + name_clear_table + ' ADD COLUMN ' + name_column[i][ii] + ' TEXT')
+                        cur.execute('INSERT INTO ' + name_clear_table + ' VALUES (%s)' % ','.join('?' * len(ii)), ii)
+                        conn.commit()
                     except sqlite3.OperationalError:
                         mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
                         message_column.append(mess)
-                        dont_save_tables.append(rep_number['report_number'])
+                        dont_save_tables.append(name_clear_table)
                         # сохраняем внесённые изменения, если не было ошибок в репорте
                         conn.commit()
-                if rep_number['report_number'] in dont_save_tables:
-                    cur.execute('DROP TABLE' + name_clear_table)
+                if name_clear_table in dont_save_tables:
+                    try:
+                        cur.execute('DROP TABLE ' + name_clear_table)
+                        conn.commit()
+                    except sqlite3.OperationalError:
+                        continue
                 conn.commit()
+
             # закрываем соединение с базой данной
             conn.close()
-
     # сводка итоговых данных
     print('------------------------------------------------------------------------------------------------')
     print('Всего найдено файлов docx: ' + str(len(list_find_docx)))
