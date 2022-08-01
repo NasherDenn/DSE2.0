@@ -6,10 +6,12 @@ import glob
 import sqlite3
 
 
+# функция для извлечения данных из репортов и записи в базу данных при нажатии на кнопку "Добавить"
 def add_table():
     # задаём папку для поиска репортов с расширением docx для Word 2013 и старше
     # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
     target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2020\*.docx'
+    # target_dir_docx = name_dir + r'\*.docx'
 
     # присваиваем переменной список найденных файлов с расширением docx
     list_find_docx = glob.glob(target_dir_docx)
@@ -70,6 +72,7 @@ def add_table():
                         rep_number['report_number'] = data_header[0][pp][p][11:]
                     elif re.match(r'Report', ii) and re.findall(r'\D', ii):
                         rep_number['report_number'] = '_' + data_header[0][pp][p + 1]
+                    if re.match(r'Report', ii) and re.findall(r'-', ii):
                         rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
                     # если есть слово "Work" и любая цифра, то номер Work Order ордера находится в этой же ячейке
                     if re.match(r'Work', ii) and re.findall(r'\d', ii):
@@ -439,20 +442,83 @@ def add_table():
             for i in list(clear_table_bottom.keys()):
                 for ii in range(len(clear_table_bottom[i])):
                     for iii in range(len(clear_table_bottom[i][ii])):
-                        if re.findall(r'"', clear_table_bottom[i][ii][iii]):
-                            b = re.sub(r'"', '', clear_table_bottom[i][ii][iii])
+                        if re.findall(r'"|\'\'|”|’’', clear_table_bottom[i][ii][iii]):
+                            b = re.sub(r'"|\'\'|”|’’', '', clear_table_bottom[i][ii][iii])
+                            clear_table_bottom[i][ii].remove(clear_table_bottom[i][ii][iii])
+                            clear_table_bottom[i][ii].insert(iii, b)
+                        if re.findall(r'\n', clear_table_bottom[i][ii][iii]):
+                            b = re.sub(r'\n', ' ', clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii].remove(clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii].insert(iii, b)
 
+            # проверяем каждую таблицу на наличие столбца Line, если его нет, то ищем колонку в головной
+            # таблице и добавляем её в rep_number
+            for i in list(name_column.keys()):
+                if 'Line' not in name_column[i]:
+                    # ищем в головной таблице 'Line'
+                    for ii in data_tables:
+                        for iii in data_tables[ii]:
+                            for iiii in iii:
+                                # ищем совпадение с шаблоном номера линии
+                                if re.match(r'[AАBВCСDHНMМ]'
+                                            r'\d{1,2}'
+                                            r'-?\s?'
+                                            r'\d{3,4}'
+                                            r'-?\s?'
+                                            r'\D{2}'
+                                            r'-?\s?'
+                                            r'\d{3}', iiii):
+                                    # создаём словарь номеров линий, на случай если в головной таблице указано несколько
+                                    # номеров линий
+                                    rep_number['line'] = []
+                                    # если есть перевод на новую строку, то проверяем каждую строку на наличие
+                                    # номера линии
+                                    if re.findall(r'\n', iiii):
+                                        sp = iiii.split('\n')
+                                        for j in sp:
+                                            if re.match(r'[AАBВCСDHНMМ]'
+                                                        r'\d{1,2}'
+                                                        r'-?\s?'
+                                                        r'\d{3,4}'
+                                                        r'-?\s?'
+                                                        r'\D{2}'
+                                                        r'-?\s?'
+                                                        r'\d{3}', j):
+                                                # избавляемся от пробельных символов в начале и в конце строки
+                                                j = j.strip()
+                                                # добавляем не достающий символ '-'
+                                                j = j.replace(' ', '-')
+                                                # удаляем символ дюйма
+                                                if re.findall(r'"|\'\'|”|’’', j):
+                                                    b = re.findall(r'"|\'\'|”|’’', j)[0]
+                                                    j = j.replace(b, '')
+                                                # записываем в rep_number номер линий
+                                                rep_number['line'].append(j)
+                                    else:
+                                        # избавляемся от пробельных символов в начале и в конце строки
+                                        iiii = iiii.strip()
+                                        # добавляем не достающий символ '-'
+                                        iiii = iiii.replace(' ', '-')
+                                        # удаляем символ дюйма
+                                        if re.findall(r'"|\'\'|”|’’', iiii):
+                                            b = re.findall(r'"|\'\'|”|’’', iiii)[0]
+                                            iiii = iiii.replace(b, '')
+                                        # записываем в rep_number номер линий
+                                        rep_number['line'].append(iiii)
+
+            print(rep_number)
             # создаём подключение к базе данных
-            conn = sqlite3.connect('reports_db.db')
+            conn = sqlite3.connect('reports_db.sqlite')
             cur = conn.cursor()
+
+            # добавляем данные из репорта в базу данных
             for i in list(clear_table_bottom.keys()):
                 # собираем название таблицы
-                name_clear_table = '\'' + str(i) + '_' + rep_number['report_number'] + '\''
+                name_clear_table = '\'' + '_' + str(i) + '_' + rep_number['report_number'] + '\''
                 try:
                     # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
-                    cur.execute('CREATE TABLE ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
+                    cur.execute(
+                        'CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
                     conn.commit()
                 except sqlite3.OperationalError:
                     mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
@@ -485,12 +551,12 @@ def add_table():
 
             # закрываем соединение с базой данной
             conn.close()
+
     # сводка итоговых данных
     print('------------------------------------------------------------------------------------------------')
-    print('Количество репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
-    print('Количество обработанных/необработанных таблиц: ' + str(full_processed_tables) + '/' +
-          str(total_tables - full_processed_tables))
-    print('Список обработанных таблиц: ')
+    print('Количество обработанных репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
+    print('Количество таблиц в БД: ' + str(full_processed_tables))
+    print('Список таблиц в БД: ')
     for i in list_full_processed_tables:
         print(i)
     print('------------------------------------------------------------------------------------------------')
