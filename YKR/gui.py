@@ -1,7 +1,11 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+from PyQt5.QtSql import QSqlDatabase
+from PyQt5.QtSql import QSqlQuery
+from PyQt5.QtSql import QSqlQueryModel
 import sys
+from back_end import *
 
 # создаём приложение
 app = QApplication(sys.argv)
@@ -43,6 +47,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
+line_search.setText('A1-3301-GA-006-1-A17-HC')
 
 # создаём кнопку "Поиск"
 button_search = QPushButton('Поиск', window)
@@ -189,7 +194,8 @@ button_add.setFont(font_button_add)
 # дополнительные параметры
 button_add.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Добавить" до авторизации
-button_add.setDisabled(True)
+# button_add.setDisabled(True)
+button_add.setDisabled(False)
 
 # создаём кнопку "Редактировать"
 button_repair = QPushButton('Редактировать', window)
@@ -239,6 +245,11 @@ button_delete.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Удалить" до авторизации
 button_delete.setDisabled(True)
 
+# задаём поле для вывода данных из базы данных
+tableView = QTableView(window)
+tableView.setObjectName(u"tableView")
+tableView.setGeometry(QRect(20, 140, 1481, 651))
+
 # вставляем картинку YKR
 label_ykr = QLabel(window)
 label_ykr.setObjectName(u"Rutledge")
@@ -273,12 +284,81 @@ def log_in():
         # блокируем кнопку "Войти"
         button_log_in.setDisabled(True)
     else:
-        QMessageBox.information(window, 'Внимание!', "Вы ввели не правильный логин или пароль!!!",
-                                buttons=QMessageBox.Ok)
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы ввели не правильный логин или пароль!!!',
+            buttons=QMessageBox.Ok
+        )
+
+
+# нажатие на кнопку "Добавить"
+def add_tables():
+    name_dir = QFileDialog.getExistingDirectory(None, 'Выбрать папку', '.')
+    add_table(name_dir)
+
+
+# нажатие на кнопку "Поиск"
+def search():
+    if line_search.text():
+        # удаляем обозначения дюймов "
+        if re.findall(r'\'\'|"|”', line_search.text()):
+            line_for_search = re.sub(r'"|\'\'', '', line_search.text())
+        line_for_search = line_search.text()
+
+        # создаём соединение с базой данной
+        con = QSqlDatabase.addDatabase('QSQLITE')
+        # передаём имя базы данных для открытия
+        con.setDatabaseName(r'C:\Users\asus\PycharmProjects\YKR\YKR\reports_db.sqlite')
+        # если соединение не установлено, то сообщение об ошибке и выход
+        if not con.open():
+            QMessageBox.critical(
+                None,
+                'App name Error',
+                'Error to connect to the database')
+            sys.exit()
+        else:
+            # список таблиц в которой есть искомая линия
+            table_for_search = []
+            for i in con.tables():
+                # подключаемся в базе данных
+                conn = sqlite3.connect('reports_db.sqlite')
+                cur = conn.cursor()
+                # перебираем список названий столбцов в таблице
+                for k in cur.execute('SELECT * FROM {}'.format(i)).description:
+                    # если 'Line' есть в названии столбца
+                    if 'Line' in k:
+                        # и если искомая линия есть в таблице, то добавляем имя таблицы в список
+                        if cur.execute('SELECT Line FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall():
+                            table_for_search.append(i)
+            # выводим данные в форму из найденных таблиц по номеру линии
+            for i in table_for_search:
+                # создаём модель
+                sqm = QSqlQueryModel(parent=window)
+                # создаём запрос
+                sqm.setQuery('SELECT * FROM {} WHERE Line="{}"'.format(i, line_for_search),
+                             db=QSqlDatabase('reports_db.sqlite'))
+                # устанавливаем ширину столбцов под содержимое
+                tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+                tableView.setModel(sqm)
+        con.close()
+    # сообщение об ошибке, если в поле для поиска ничего не введено
+    else:
+        QMessageBox.information(
+            window,
+            'Внимание',
+            'Вы не ввели номер линии или чертежа для поиска данных'
+        )
 
 
 # нажатие кнопки "Войти"
 button_log_in.clicked.connect(log_in)
+
+# нажатие на кнопку "Добавить"
+button_add.clicked.connect(add_tables)
+
+# нажатие на кнопку "Поиск"
+button_search.clicked.connect(search)
 
 
 def log_out():
