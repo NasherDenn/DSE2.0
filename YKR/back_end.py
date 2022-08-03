@@ -506,29 +506,20 @@ def add_table():
                                         # записываем в rep_number номер линий
                                         rep_number['line'].append(iiii)
 
-            print(rep_number)
             # создаём подключение к базе данных
             conn = sqlite3.connect('reports_db.sqlite')
             cur = conn.cursor()
-
             # добавляем данные из репорта в базу данных
             for i in list(clear_table_bottom.keys()):
                 # собираем название таблицы
                 name_clear_table = '\'' + '_' + str(i) + '_' + rep_number['report_number'] + '\''
-                try:
-                    # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
-                    cur.execute(
-                        'CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
-                    conn.commit()
-                except sqlite3.OperationalError:
-                    mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
-                    message_column.append(mess)
-                    dont_save_tables.append(name_clear_table)
-                    # сохраняем внесённые изменения, если не было ошибок в репорте
-                    conn.commit()
-                for ii in clear_table_bottom[i]:
+                # проверяем, есть такая таблица в базе данных, что бы вносимые данные не повторялись
+                if not cur.execute('SELECT * FROM sqlite_master WHERE  name="{}"'.format(
+                        name_clear_table[1:-1])).fetchone():
                     try:
-                        cur.execute('INSERT INTO ' + name_clear_table + ' VALUES (%s)' % ','.join('?' * len(ii)), ii)
+                        # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
+                        cur.execute(
+                            'CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
                         conn.commit()
                     except sqlite3.OperationalError:
                         mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
@@ -536,18 +527,30 @@ def add_table():
                         dont_save_tables.append(name_clear_table)
                         # сохраняем внесённые изменения, если не было ошибок в репорте
                         conn.commit()
-                if name_clear_table in dont_save_tables:
-                    try:
-                        cur.execute('DROP TABLE ' + name_clear_table)
-                        conn.commit()
-                    except sqlite3.OperationalError:
-                        continue
-                conn.commit()
+                    for ii in clear_table_bottom[i]:
 
-            # количество полностью обработанных таблиц
-            full_processed_tables = len(cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall())
-            # список обработанных таблиц
-            list_full_processed_tables = cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall()
+                        try:
+                            cur.execute('INSERT INTO ' + name_clear_table + ' VALUES (%s)' % ','.join('?' * len(ii)),
+                                        ii)
+                            conn.commit()
+                        except sqlite3.OperationalError:
+                            mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
+                            message_column.append(mess)
+                            dont_save_tables.append(name_clear_table)
+                            # сохраняем внесённые изменения, если не было ошибок в репорте
+                            conn.commit()
+                    if name_clear_table in dont_save_tables:
+                        try:
+                            cur.execute('DROP TABLE ' + name_clear_table)
+                            conn.commit()
+                        except sqlite3.OperationalError:
+                            continue
+                    conn.commit()
+
+                # количество полностью обработанных таблиц
+                full_processed_tables = len(cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall())
+                # список обработанных таблиц
+                list_full_processed_tables = cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall()
 
             # закрываем соединение с базой данной
             conn.close()
