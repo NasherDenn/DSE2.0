@@ -4,13 +4,17 @@ from docx import Document
 import re
 import glob
 import sqlite3
+import time
+
+# время начала работы
+start = time.time()
 
 
 # функция для извлечения данных из репортов и записи в базу данных при нажатии на кнопку "Добавить"
 def add_table():
     # задаём папку для поиска репортов с расширением docx для Word 2013 и старше
     # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
-    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2020\*.docx'
+    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2022\1\*.docx'
     # target_dir_docx = name_dir + r'\*.docx'
 
     # присваиваем переменной список найденных файлов с расширением docx
@@ -71,9 +75,7 @@ def add_table():
                     if re.match(r'Report', ii) and re.findall(r'\d', ii):
                         rep_number['report_number'] = data_header[0][pp][p][11:]
                     elif re.match(r'Report', ii) and re.findall(r'\D', ii):
-                        rep_number['report_number'] = '_' + data_header[0][pp][p + 1]
-                    if re.match(r'Report', ii) and re.findall(r'-', ii):
-                        rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
+                        rep_number['report_number'] = data_header[0][pp][p + 1]
                     # если есть слово "Work" и любая цифра, то номер Work Order ордера находится в этой же ячейке
                     if re.match(r'Work', ii) and re.findall(r'\d', ii):
                         rep_number['work_order'] = data_header[0][pp][p][-8:]
@@ -81,6 +83,9 @@ def add_table():
                         rep_number['work_order'] = data_header[0][pp][p + 1]
                     p += 1
                 pp += 1
+
+            # меняем '-' на '_' в названиях репортов в rep_number['report_number']
+            rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
 
             # извлекаем необходимые данные из репорта
             # переменная со всеми таблицами в репорте
@@ -462,7 +467,7 @@ def add_table():
                                 # ищем совпадение с шаблоном номера линии
                                 if re.match(r'[AАBВCСDHНMМ]'
                                             r'\d{1,2}'
-                                            r'-?\s?'
+                                            r'-{1,2}?\s?'
                                             r'\d{3,4}'
                                             r'-?\s?'
                                             r'\D{2}'
@@ -470,7 +475,7 @@ def add_table():
                                             r'\d{3}', iiii):
                                     # создаём словарь номеров линий, на случай если в головной таблице указано несколько
                                     # номеров линий
-                                    rep_number['line'] = []
+                                    # rep_number['line'] = []
                                     # если есть перевод на новую строку, то проверяем каждую строку на наличие
                                     # номера линии
                                     if re.findall(r'\n', iiii):
@@ -478,7 +483,7 @@ def add_table():
                                         for j in sp:
                                             if re.match(r'[AАBВCСDHНMМ]'
                                                         r'\d{1,2}'
-                                                        r'-?\s?'
+                                                        r'-{1,2}?\s?'
                                                         r'\d{3,4}'
                                                         r'-?\s?'
                                                         r'\D{2}'
@@ -493,7 +498,7 @@ def add_table():
                                                     b = re.findall(r'"|\'\'|”|’’', j)[0]
                                                     j = j.replace(b, '')
                                                 # записываем в rep_number номер линий
-                                                rep_number['line'].append(j)
+                                                rep_number['line'] = j
                                     else:
                                         # избавляемся от пробельных символов в начале и в конце строки
                                         iiii = iiii.strip()
@@ -504,7 +509,13 @@ def add_table():
                                             b = re.findall(r'"|\'\'|”|’’', iiii)[0]
                                             iiii = iiii.replace(b, '')
                                         # записываем в rep_number номер линий
-                                        rep_number['line'].append(iiii)
+                                        rep_number['line'] = iiii
+                else:
+                    # если в таблице есть столбец 'Line', то в rep_nuber вносим '-'
+                    rep_number['line'] = '-'
+
+            # временное значение для drawing в rep_number
+            rep_number['drawing'] = '-'
 
             # создаём подключение к базе данных
             conn = sqlite3.connect('reports_db.sqlite')
@@ -528,7 +539,6 @@ def add_table():
                         # сохраняем внесённые изменения, если не было ошибок в репорте
                         conn.commit()
                     for ii in clear_table_bottom[i]:
-
                         try:
                             cur.execute('INSERT INTO ' + name_clear_table + ' VALUES (%s)' % ','.join('?' * len(ii)),
                                         ii)
@@ -551,6 +561,33 @@ def add_table():
                 full_processed_tables = len(cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall())
                 # список обработанных таблиц
                 list_full_processed_tables = cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall()
+
+            # создаём таблицу master со столбцами из rep_number
+            cur.execute('CREATE TABLE IF NOT EXISTS master (report_number, report_date, work_order, line, drawing)')
+            # активатор наличия репорта в таблице master
+            check_report_number = 0
+            # перебираем номера репортов, которые есть в таблице master
+            for j in cur.execute('SELECT report_number FROM master').fetchall():
+                # если такой репорт есть (сравниваем последний 6 символов реопрта - они уникальны)
+                if rep_number['report_number'][-6:] == j[0][-6:]:
+                    # то меняем статус активатора
+                    check_report_number += 1
+            # если статус активатора не изменён (такой репорт еще не занесён в базу данных)
+            if check_report_number == 0:
+                # то перебираем номера репортов
+                for i in cur.execute('SELECT name FROM sqlite_master').fetchall():
+                    # и вносим данные из того репорта, который соответствует искомому номеру
+                    if rep_number['report_number'][-6:] == i[0][-6:]:
+                        # и вносим данные из rep_number в таблицу master
+                        cur.execute(
+                            'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
+                                                                          rep_number['report_date'],
+                                                                          rep_number['work_order'],
+                                                                          rep_number['line'],
+                                                                          rep_number['drawing']))
+                        conn.commit()
+                        # прерываем дальнейший перебор
+                        break
 
             # закрываем соединение с базой данной
             conn.close()
@@ -585,3 +622,8 @@ def add_table():
 
 if __name__ == '__main__':
     add_table()
+    # время окончания работы
+    end = time.time()
+    # затраченное время на работу
+    total_time = int(end) - int(start)
+    print(total_time)
