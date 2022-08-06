@@ -305,7 +305,6 @@ def search():
         if re.findall(r'\'\'|"|”', line_search.text()):
             line_for_search = re.sub(r'"|\'\'', '', line_search.text())
         line_for_search = line_search.text()
-
         # создаём соединение с базой данной
         con = QSqlDatabase.addDatabase('QSQLITE')
         # передаём имя базы данных для открытия
@@ -319,7 +318,10 @@ def search():
             sys.exit()
         else:
             # список таблиц в которой есть искомая линия
-            table_for_search = []
+            table_for_search_line = []
+            # список таблиц в которой есть искомый чертёж
+            table_for_search_drawing = []
+            # перебираем таблицы, которые попали в базу данных после очистки
             for i in con.tables():
                 # подключаемся в базе данных
                 conn = sqlite3.connect('reports_db.sqlite')
@@ -328,19 +330,47 @@ def search():
                 for k in cur.execute('SELECT * FROM {}'.format(i)).description:
                     # если 'Line' есть в названии столбца
                     if 'Line' in k:
-                        # и если искомая линия есть в таблице, то добавляем имя таблицы в список
+                        # и если искомая линия есть в таблице, то добавляем имя таблицы в список table_for_search_line
                         if cur.execute('SELECT Line FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall():
-                            table_for_search.append(i)
+                            table_for_search_line.append(i)
+                    # если 'Drawing' есть в названии столбца
+                    if 'Drawing' in k:
+                        # и если искомый чертёж есть в таблице, то добавляем имя таблицы в список
+                        # table_for_search_drawing
+                        if cur.execute(
+                                'SELECT Drawing FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall():
+                            table_for_search_drawing.append(i)
+                cur.close()
+            # создаём модель
+            sqm = QSqlQueryModel(parent=window)
+            # устанавливаем ширину столбцов под содержимое
+            tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+            tableView.setModel(sqm)
             # выводим данные в форму из найденных таблиц по номеру линии
-            for i in table_for_search:
-                # создаём модель
-                sqm = QSqlQueryModel(parent=window)
+            for i in table_for_search_line:
                 # создаём запрос
                 sqm.setQuery('SELECT * FROM {} WHERE Line="{}"'.format(i, line_for_search),
                              db=QSqlDatabase('reports_db.sqlite'))
-                # устанавливаем ширину столбцов под содержимое
-                tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-                tableView.setModel(sqm)
+            # выводим данные в форму из найденных таблиц по номеру чертежа
+            for i in table_for_search_drawing:
+                # создаём запрос
+                sqm.setQuery('SELECT * FROM {} WHERE Drawing="{}"'.format(i, line_for_search),
+                             db=QSqlDatabase('reports_db.sqlite'))
+            # подключаемся в базе данных
+            conn = sqlite3.connect('reports_db.sqlite')
+            cur = conn.cursor()
+            # ищем номер линии в таблице master (потому что line нет в таблице с данными)
+            if cur.execute('SELECT report_number FROM master WHERE line="{}"'.format(line_for_search)).fetchall():
+                # находим последний 6 символов номера репорта
+                last_six_symbol_number_report = (cur.execute(
+                    'SELECT report_number '
+                    'FROM master '
+                    'WHERE line="{}"'.format(line_for_search)).fetchall()[0][0][-6:])
+                for i in cur.execute(
+                        'SELECT name FROM sqlite_master WHERE name LIKE "%{}%"'.format(last_six_symbol_number_report)):
+                    # создаём запрос
+                    sqm.setQuery('SELECT * FROM {}'.format(i[0]), db=QSqlDatabase('reports_db.sqlite'))
+            cur.close()
         con.close()
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
