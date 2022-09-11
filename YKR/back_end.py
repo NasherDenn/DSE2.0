@@ -6,6 +6,8 @@ import glob
 import sqlite3
 import time
 
+from YKR.props import DB_NAME
+
 # время начала работы
 start = time.time()
 
@@ -443,10 +445,10 @@ def add_table():
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, b)
 
-            # очищаем таблицу данных clear_table_bottom
             for i in list(clear_table_bottom.keys()):
                 for ii in range(len(clear_table_bottom[i])):
                     for iii in range(len(clear_table_bottom[i][ii])):
+                        # очищаем таблицу данных clear_table_bottom
                         if re.findall(r'"|\'\'|”|’’', clear_table_bottom[i][ii][iii]):
                             b = re.sub(r'"|\'\'|”|’’', '', clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii].remove(clear_table_bottom[i][ii][iii])
@@ -456,11 +458,45 @@ def add_table():
                             clear_table_bottom[i][ii].remove(clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii].insert(iii, b)
 
+            # активатор наличия номера чертежа в ячейке с номером линии
+            sh_drawing = 0
+            for i in list(clear_table_bottom.keys()):
+                for ii in range(len(clear_table_bottom[i])):
+                    for iii in range(len(clear_table_bottom[i][ii])):
+                        # проверяем на наличие в одной ячейке номер линии и номер чертежа
+                        if re.findall(r'[AАBВCСDHНMМ]'
+                                      r'\d{1,2}'
+                                      r'-{1,2}?\s?'
+                                      r'\d{3,4}'
+                                      r'-?\s?'
+                                      r'\D{2}'
+                                      r'-?\s?'
+                                      r'\d{3}', clear_table_bottom[i][ii][iii]) and re.findall(r'KE01-.+',
+                                                                                               clear_table_bottom[i][
+                                                                                                   ii][iii]):
+                            # если нашли, находим номер чертежа
+                            d = re.findall(r'KE01-.+', clear_table_bottom[i][ii][iii])[0]
+                            # удаляем номер чертежа из ячейки с номером линии
+                            clear_table_bottom[i][ii][iii] = clear_table_bottom[i][ii][iii].replace(d, '')
+                            # удаляем пустые символы, оставшиеся в ячейке
+                            clear_table_bottom[i][ii][iii] = clear_table_bottom[i][ii][iii].replace(' ', '')
+                            # удаляем "/" символы, оставшиеся в ячейке
+                            clear_table_bottom[i][ii][iii] = clear_table_bottom[i][ii][iii].replace('/', '')
+                            # добавляем номер чертежа в столбец
+                            clear_table_bottom[i][ii].insert(1, d)
+                            # активируем наличие номера чертежа в ячейке с номером линии
+                            sh_drawing += 1
+                if sh_drawing != 0:
+                    name_column[i].insert(1, 'Drawing')
+
+            # активатор отсутствия Line в основной таблице
+            sh_line = 0
             # проверяем каждую таблицу на наличие столбца Line, если его нет, то ищем колонку в головной
             # таблице и добавляем её в rep_number
             for i in list(name_column.keys()):
                 if 'Line' not in name_column[i]:
                     # ищем в головной таблице 'Line'
+                    sh_line += 1
                     for ii in data_tables:
                         for iii in data_tables[ii]:
                             for iiii in iii:
@@ -473,9 +509,6 @@ def add_table():
                                             r'\D{2}'
                                             r'-?\s?'
                                             r'\d{3}', iiii):
-                                    # создаём словарь номеров линий, на случай если в головной таблице указано несколько
-                                    # номеров линий
-                                    # rep_number['line'] = []
                                     # если есть перевод на новую строку, то проверяем каждую строку на наличие
                                     # номера линии
                                     if re.findall(r'\n', iiii):
@@ -497,8 +530,8 @@ def add_table():
                                                 if re.findall(r'"|\'\'|”|’’', j):
                                                     b = re.findall(r'"|\'\'|”|’’', j)[0]
                                                     j = j.replace(b, '')
-                                                # записываем в rep_number номер линий
-                                                rep_number['line'] = j
+                                                # найденный номер линии в головной таблице
+                                                line_for_head = j
                                     else:
                                         # избавляемся от пробельных символов в начале и в конце строки
                                         iiii = iiii.strip()
@@ -508,17 +541,17 @@ def add_table():
                                         if re.findall(r'"|\'\'|”|’’', iiii):
                                             b = re.findall(r'"|\'\'|”|’’', iiii)[0]
                                             iiii = iiii.replace(b, '')
-                                        # записываем в rep_number номер линий
-                                        rep_number['line'] = iiii
-                else:
-                    # если в таблице есть столбец 'Line', то в rep_nuber вносим '-'
-                    rep_number['line'] = '-'
-
-            # временное значение для drawing в rep_number
-            rep_number['drawing'] = '-'
+                                        # найденный номер линии в головной таблице
+                                        line_for_head = iiii
+                    name_column[i].insert(0, 'Line')
+            if sh_line != 0:
+                for i in list(clear_table_bottom.keys()):
+                    for ii in range(len(clear_table_bottom[i])):
+                        # добавляем номер линии в столбец
+                        clear_table_bottom[i][ii].insert(0, line_for_head)
 
             # создаём подключение к базе данных
-            conn = sqlite3.connect('reports_db.sqlite')
+            conn = sqlite3.connect(DB_NAME)
             cur = conn.cursor()
             # добавляем данные из репорта в базу данных
             for i in list(clear_table_bottom.keys()):
@@ -563,12 +596,12 @@ def add_table():
                 list_full_processed_tables = cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall()
 
             # создаём таблицу master со столбцами из rep_number
-            cur.execute('CREATE TABLE IF NOT EXISTS master (report_number, report_date, work_order, line, drawing)')
+            cur.execute('CREATE TABLE IF NOT EXISTS master (report_number, report_date, work_order)')
             # активатор наличия репорта в таблице master
             check_report_number = 0
             # перебираем номера репортов, которые есть в таблице master
             for j in cur.execute('SELECT report_number FROM master').fetchall():
-                # если такой репорт есть (сравниваем последний 6 символов реопрта - они уникальны)
+                # если такой репорт есть (сравниваем последний 6 символов репорта - они уникальны)
                 if rep_number['report_number'][-6:] == j[0][-6:]:
                     # то меняем статус активатора
                     check_report_number += 1
@@ -580,11 +613,9 @@ def add_table():
                     if rep_number['report_number'][-6:] == i[0][-6:]:
                         # и вносим данные из rep_number в таблицу master
                         cur.execute(
-                            'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
-                                                                          rep_number['report_date'],
-                                                                          rep_number['work_order'],
-                                                                          rep_number['line'],
-                                                                          rep_number['drawing']))
+                            'INSERT INTO master VALUES (?, ?, ?)', (rep_number['report_number'],
+                                                                    rep_number['report_date'],
+                                                                    rep_number['work_order']))
                         conn.commit()
                         # прерываем дальнейший перебор
                         break
@@ -593,31 +624,31 @@ def add_table():
             conn.close()
 
     # сводка итоговых данных
-    print('------------------------------------------------------------------------------------------------')
-    print('Количество обработанных репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
-    print('Количество таблиц в БД: ' + str(full_processed_tables))
-    print('Список таблиц в БД: ')
-    for i in list_full_processed_tables:
-        print(i)
-    print('------------------------------------------------------------------------------------------------')
-    print('Ошибки в репорте: ' + str(len(set(list_cells))))
-    for i in range(len(message_mistake)):
-        print('\t' + message_mistake[i])
-    print('------------------------------------------------------------------------------------------------')
-    print('Пустых таблиц: ' + str(len(set(list_zero_table))))
-    print('В репорте:')
-    for i in range(zero_table):
-        print('\t' + list_zero_table[i])
-    print('------------------------------------------------------------------------------------------------')
-    print('Репортов с нарушением структуры таблицы: ' + str(len(set(list_distract_structure))))
-    print('В репорте:')
-    for i in range(distract_structure):
-        print('\t' + list_distract_structure[i])
-    print('------------------------------------------------------------------------------------------------')
-    print('Количество репортов с ошибками в названиях столбцов: ' + str(len(set(dont_save_tables))))
-    for i in range(len(set(dont_save_tables))):
-        print('\t' + dont_save_tables[i])
-    print('------------------------------------------------------------------------------------------------')
+    # print('------------------------------------------------------------------------------------------------')
+    # print('Количество обработанных репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
+    # print('Количество таблиц в БД: ' + str(full_processed_tables))
+    # print('Список таблиц в БД: ')
+    # for i in list_full_processed_tables:
+    #     print(i)
+    # print('------------------------------------------------------------------------------------------------')
+    # print('Ошибки в репорте: ' + str(len(set(list_cells))))
+    # for i in range(len(message_mistake)):
+    #     print('\t' + message_mistake[i])
+    # print('------------------------------------------------------------------------------------------------')
+    # print('Пустых таблиц: ' + str(len(set(list_zero_table))))
+    # print('В репорте:')
+    # for i in range(zero_table):
+    #     print('\t' + list_zero_table[i])
+    # print('------------------------------------------------------------------------------------------------')
+    # print('Репортов с нарушением структуры таблицы: ' + str(len(set(list_distract_structure))))
+    # print('В репорте:')
+    # for i in range(distract_structure):
+    #     print('\t' + list_distract_structure[i])
+    # print('------------------------------------------------------------------------------------------------')
+    # print('Количество репортов с ошибками в названиях столбцов: ' + str(len(set(dont_save_tables))))
+    # for i in range(len(set(dont_save_tables))):
+    #     print('\t' + dont_save_tables[i])
+    # print('------------------------------------------------------------------------------------------------')
 
 
 if __name__ == '__main__':
@@ -626,4 +657,4 @@ if __name__ == '__main__':
     end = time.time()
     # затраченное время на работу
     total_time = int(end) - int(start)
-    print(total_time)
+    # print(total_time)
