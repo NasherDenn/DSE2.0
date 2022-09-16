@@ -1,9 +1,12 @@
+import re
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import QSqlDatabase
 from PyQt5.QtSql import QSqlQuery
 from PyQt5.QtSql import QSqlQueryModel
+from PyQt5.QtGui import QFontDatabase
 import sys
 from back_end import *
 
@@ -16,7 +19,7 @@ window.setWindowTitle('Finder')
 # задаём стиль приложения Fusion
 app.setStyle('Fusion')
 # размер окна приложения
-window.resize(1524, 872)
+window.setFixedSize(1524, 872)
 
 # устанавливаем favicon в окне приложения
 icon = QIcon()
@@ -47,7 +50,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('A1-3301-GA-006-1-A17-HC')
+line_search.setText('A1-321-VA-107')
 
 # создаём кнопку "Поиск"
 button_search = QPushButton('Поиск', window)
@@ -226,8 +229,6 @@ font_button_ok.setPointSize(14)
 button_ok.setFont(font_button_ok)
 # дополнительные параметры
 button_ok.setFocusPolicy(Qt.ClickFocus)
-# делаем неактивной кнопку "Готово" до авторизации
-button_ok.setDisabled(True)
 
 # создаём кнопку "Удалить"
 button_delete = QPushButton('Удалить', window)
@@ -244,11 +245,6 @@ button_delete.setFont(font_button_delete)
 button_delete.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Удалить" до авторизации
 button_delete.setDisabled(True)
-
-# задаём поле для вывода данных из базы данных
-tableView = QTableView(window)
-tableView.setObjectName(u"tableView")
-tableView.setGeometry(QRect(20, 140, 1481, 651))
 
 # вставляем картинку YKR
 label_ykr = QLabel(window)
@@ -268,14 +264,21 @@ label_ncoc.setObjectName(u"Rutledge")
 label_ncoc.setGeometry(QRect(1050, 13, 111, 115))
 label_ncoc.setPixmap(QPixmap(u"logo_ncoc.png"))
 
+# общая область с боковой полосой прокрутки
+scroll_area = QScrollArea(window)
+scroll_area.setObjectName(u'Scroll_Area')
+# полоса прокрутки появляется, только если таблицы больше самой области прокрутки
+scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+# задаём размер области с полосой прокрутки
+scroll_area.setGeometry(20, 140, 1481, 650)
+
 
 # нажатие кнопки "Войти"
 def log_in():
     if line_login.text() == 'admin' and line_password.text() == 'admin':
         # делаем активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
-        button_add.setDisabled(False)
         button_repair.setDisabled(False)
-        button_ok.setDisabled(False)
         button_delete.setDisabled(False)
         button_log_out.setDisabled(False)
         # очищаем поле ввода логина и пароля
@@ -296,6 +299,11 @@ def log_in():
 def add_tables():
     name_dir = QFileDialog.getExistingDirectory(None, 'Выбрать папку', '.')
     add_table(name_dir)
+
+
+
+
+
 
 
 # нажатие на кнопку "Поиск"
@@ -321,6 +329,13 @@ def search():
             table_for_search_line = []
             # список таблиц в которой есть искомый чертёж
             table_for_search_drawing = []
+            # проверяем наличие областей tableView для вывода данных
+            # если есть, то закрываем их, чтобы не наслаивались
+            if window.findChildren(QTableView):
+                open_tableview = window.findChildren(QTableView)
+                for i in open_tableview:
+                    i.hide()
+
             # перебираем таблицы, которые попали в базу данных после очистки
             for i in con.tables():
                 # подключаемся в базе данных
@@ -341,37 +356,133 @@ def search():
                                 'SELECT Drawing FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall():
                             table_for_search_drawing.append(i)
                 cur.close()
-            # создаём модель
-            sqm = QSqlQueryModel(parent=window)
-            # устанавливаем ширину столбцов под содержимое
-            tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-            tableView.setModel(sqm)
-            # выводим данные в форму из найденных таблиц по номеру линии
-            for i in table_for_search_line:
-                # создаём запрос
-                sqm.setQuery('SELECT * FROM {} WHERE Line="{}"'.format(i, line_for_search),
-                             db=QSqlDatabase('reports_db.sqlite'))
-            # выводим данные в форму из найденных таблиц по номеру чертежа
-            for i in table_for_search_drawing:
-                # создаём запрос
-                sqm.setQuery('SELECT * FROM {} WHERE Drawing="{}"'.format(i, line_for_search),
-                             db=QSqlDatabase('reports_db.sqlite'))
-            # подключаемся в базе данных
-            conn = sqlite3.connect('reports_db.sqlite')
-            cur = conn.cursor()
-            # ищем номер линии в таблице master (потому что line нет в таблице с данными)
-            if cur.execute('SELECT report_number FROM master WHERE line="{}"'.format(line_for_search)).fetchall():
-                # находим последний 6 символов номера репорта
-                last_six_symbol_number_report = (cur.execute(
-                    'SELECT report_number '
-                    'FROM master '
-                    'WHERE line="{}"'.format(line_for_search)).fetchall()[0][0][-6:])
-                for i in cur.execute(
-                        'SELECT name FROM sqlite_master WHERE name LIKE "%{}%"'.format(last_six_symbol_number_report)):
+            # сортировка по возрастанию для вывода в хронологическом порядке
+            table_for_search_line.sort()
+            table_for_search_drawing.sort()
+            # если найден номер линии или номер чертежа, то показываем область для таблицы с найденными данными
+            if table_for_search_line or table_for_search_drawing:
+                # считаем количество найденных таблиц для вывода нужного количества tableView
+                count_table_view = len(table_for_search_line) + len(table_for_search_drawing)
+                # список названий таблицы для переменной при создании tableView
+                table_view = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+                              'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
+                              'nineteen', 'twenty', 'twenty_one', 'twenty_two', 'twenty_three', 'twenty_four',
+                              'twenty_five', 'twenty_six', 'twenty_seven', 'twenty_eight', 'twenty_nine', 'thirty']
+                # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса
+                # прокрутки
+                frame_for_table = QFrame()
+                # подключаемся в базе данных
+                cur = conn.cursor()
+                # список количества строк в каждой найденной таблице
+                count_row_table_view = []
+                for i in table_for_search_line:
+                    # количество строк в одной найденной таблице count_row_table_view[0][0]
+                    count_row_table = cur.execute(
+                        'SELECT COUNT(*) FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall()
+                    count_row_table_view.append(count_row_table[0][0])
+                for i in table_for_search_drawing:
+                    # количество строк в одной найденной таблице count_row_table[0][0]
+                    count_row_table = cur.execute(
+                        'SELECT COUNT(*) FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall()
+                    count_row_table_view.append(count_row_table[0][0])
+                # закрываем соединение
+                cur.close()
+                # общее количество строк в найденных таблицах для длины frame
+                sum_row_table = 0
+                for i in count_row_table_view:
+                    sum_row_table += i
+                # высота одной строки
+                one_row = 25
+                # высота фрейма = общее количество строк в найденных таблицах * высоту одной строки +
+                # + количество таблиц * 2 (кнопка номера репорта и строка названий столбцов) * 20 (высота одной
+                # строки) + 20 (высота первой строки с номером первого репорта)
+                w = sum_row_table * one_row + len(count_row_table_view) * 2 * 20 + 20
+                # помещаем frame в область с полосой прокрутки
+                scroll_area.setWidget(frame_for_table)
+                # задаём размер frame
+                frame_for_table.setGeometry(0, 0, 1460, w)
+                frame_for_table.show()
+                # начальная координата y1 - первой кнопки с номером репорта первой, y2 - первой таблицы
+                y1 = 0
+                y2 = 20
+
+                # список всех таблиц и номеров репортов
+                list_table_view = []
+                list_button_for_table = []
+
+                for i in range(count_table_view):
+                    # высота одной таблицы tableView = количество строк в одной таблице * высоту одной строки +
+                    # + высота строки названия столбцов
+                    height = count_row_table_view[i] * one_row + one_row
+                    # создаём переменную названия кнопок номеров репортов для вывода данных
+                    if table_for_search_line:
+                        button_for_table = table_for_search_line[i]
+                        button_for_table = re.sub(r'_', '-', button_for_table)
+                        ind = button_for_table.index('-04') + 1
+                        # название кнопки по номеру репорта
+                        second_underlining = button_for_table[ind:]
+                    if table_for_search_drawing:
+                        button_for_table = table_for_search_drawing[i]
+                        button_for_table = re.sub(r'_', '-', button_for_table)
+                        ind = button_for_table.index('-04') + 1
+                        # название кнопки по номеру репорта
+                        second_underlining = button_for_table[ind:]
+                    # задаём название кнопки по номеру репорта и помещаем внутрь frame
+                    button_for_table = QPushButton(second_underlining, frame_for_table)
+                    # задаём размеры и место расположения кнопки во frame
+                    button_for_table.setGeometry(QRect(0, y1, 300, 20))
+                    # задаём стиль шрифта
+                    font_button_for_table = QFont()
+                    font_button_for_table.setFamily(u"Calibri")
+                    font_button_for_table.setPointSize(10)
+                    button_for_table.setStyleSheet('text-align: left; font: bold italic')
+                    button_for_table.setFont(font_button_for_table)
+                    button_for_table.show()
+                    # скрываем границы кнопки
+                    # button_for_table.setStyleSheet('border-style: none')
+                    button_for_table.setFlat(True)
+                    # делаем кнопку переключателем
+                    button_for_table.setCheckable(True)
+                    # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
+                    table_view[i] = QTableView(frame_for_table)
+                    # устанавливаем координаты расположения таблиц в области с полосой прокрутки
+                    table_view[i].setGeometry(QRect(0, y2, 1460, height))
+
+                    list_button_for_table.append(button_for_table)
+                    list_table_view.append(table_view[i])
+
+                    table_view[i].show()
+                    # сдвигаем все последующие кнопки и таблицы
+                    y1 += height + 20
+                    y2 += height + 20
+                    # создаём модель
+                    sqm = QSqlQueryModel(parent=window)
+                    # устанавливаем ширину столбцов под содержимое
+                    table_view[i].horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+                    # устанавливаем высоту столбцов под содержимое
+                    table_view[i].verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+                    # устанавливаем разный цвет фона для чётных и нечётных строк
+                    table_view[i].setAlternatingRowColors(True)
+                    table_view[i].setModel(sqm)
+
                     # создаём запрос
-                    sqm.setQuery('SELECT * FROM {}'.format(i[0]), db=QSqlDatabase('reports_db.sqlite'))
-            cur.close()
-        con.close()
+                    # выводим данные в форму из найденных таблиц по номеру линии в таблице
+                    if len(table_for_search_line) > 0:
+                        sqm.setQuery(
+                            'SELECT * FROM {} WHERE Line="{}"'.format(table_for_search_line[i], line_for_search),
+                            db=QSqlDatabase('reports_db.sqlite'))
+                    # выводим данные в форму из найденных таблиц по номеру чертежа в таблице
+                    else:
+                        sqm.setQuery(
+                            'SELECT * FROM {} WHERE Drawing="{}"'.format(table_for_search_drawing[i], line_for_search),
+                            db=QSqlDatabase('reports_db.sqlite'))
+                    table_view[i].hide()
+
+                    # обработка нажатия на кнопку с номером репорта в frame
+                    button_for_table.clicked.connect(lambda: visible_table_view(list_table_view, list_button_for_table))
+
+                scroll_area.show()
+
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -379,6 +490,44 @@ def search():
             'Внимание',
             'Вы не ввели номер линии или чертежа для поиска данных'
         )
+
+
+# функция отображения и повторного скрытия таблиц в frame
+# l_t_v = list_table_view = список всех таблиц
+# l_b_t = list_button_for_table = список всех номеров репортов
+def visible_table_view(l_t_v, l_b_t):
+    ii = 0
+    # список нажатых кнопок
+    list_button_for_table_true = []
+    # список отжатых кнопок
+    list_button_for_table_false = []
+    for i in l_b_t:
+        # если нажата
+        if i.isChecked():
+            list_button_for_table_true.append(ii)
+        # если не нажата
+        if not i.isChecked():
+            list_button_for_table_false.append(ii)
+        ii += 1
+    for b in list_button_for_table_true:
+        # делаем таблицу из списка видимой
+        l_t_v[b].setVisible(True)
+    for bb in list_button_for_table_false:
+        # делаем таблицу из списка снова скрытой
+        l_t_v[bb].setVisible(False)
+
+# нажатие на кнопку "Удалить"
+def delete_report():
+    pass
+
+
+def log_out():
+    # делаем НЕ активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
+    button_repair.setDisabled(True)
+    button_delete.setDisabled(True)
+    button_log_out.setDisabled(True)
+    # разблокируем кнопку "Войти"
+    button_log_in.setDisabled(False)
 
 
 # нажатие кнопки "Войти"
@@ -391,19 +540,15 @@ button_add.clicked.connect(add_tables)
 button_search.clicked.connect(search)
 
 
-def log_out():
-    # делаем НЕ активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
-    button_add.setDisabled(True)
-    button_repair.setDisabled(True)
-    button_ok.setDisabled(True)
-    button_delete.setDisabled(True)
-    button_log_out.setDisabled(True)
-    # разблокируем кнопку "Войти"
-    button_log_in.setDisabled(False)
 
 
-# нажатие кнопки "Выйти"
+
+# нажатие на кнопку "Удалить"
+button_delete.clicked.connect(delete_report)
+
+# нажатие на кнопку "Выйти"
 button_log_out.clicked.connect(log_out)
+
 
 window.show()
 sys.exit(app.exec_())
