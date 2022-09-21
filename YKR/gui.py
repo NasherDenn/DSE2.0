@@ -50,7 +50,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('A1-321-VA-107')
+line_search.setText('A1-2102-RG-047-10-A11 ')
 
 # создаём кнопку "Поиск"
 button_search = QPushButton('Поиск', window)
@@ -301,11 +301,6 @@ def add_tables():
     add_table(name_dir)
 
 
-
-
-
-
-
 # нажатие на кнопку "Поиск"
 def search():
     if line_search.text():
@@ -404,12 +399,10 @@ def search():
                 frame_for_table.show()
                 # начальная координата y1 - первой кнопки с номером репорта первой, y2 - первой таблицы
                 y1 = 0
-                y2 = 20
-
-                # список всех таблиц и номеров репортов
+                # список всех таблиц, номеров репортов и высоты каждой таблицы
                 list_table_view = []
                 list_button_for_table = []
-
+                list_height_table_view = []
                 for i in range(count_table_view):
                     # высота одной таблицы tableView = количество строк в одной таблице * высоту одной строки +
                     # + высота строки названия столбцов
@@ -446,15 +439,12 @@ def search():
                     # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
                     table_view[i] = QTableView(frame_for_table)
                     # устанавливаем координаты расположения таблиц в области с полосой прокрутки
-                    table_view[i].setGeometry(QRect(0, y2, 1460, height))
-
                     list_button_for_table.append(button_for_table)
                     list_table_view.append(table_view[i])
-
+                    list_height_table_view.append(height)
                     table_view[i].show()
                     # сдвигаем все последующие кнопки и таблицы
-                    y1 += height + 20
-                    y2 += height + 20
+                    y1 += 20
                     # создаём модель
                     sqm = QSqlQueryModel(parent=window)
                     # устанавливаем ширину столбцов под содержимое
@@ -464,7 +454,6 @@ def search():
                     # устанавливаем разный цвет фона для чётных и нечётных строк
                     table_view[i].setAlternatingRowColors(True)
                     table_view[i].setModel(sqm)
-
                     # создаём запрос
                     # выводим данные в форму из найденных таблиц по номеру линии в таблице
                     if len(table_for_search_line) > 0:
@@ -477,12 +466,10 @@ def search():
                             'SELECT * FROM {} WHERE Drawing="{}"'.format(table_for_search_drawing[i], line_for_search),
                             db=QSqlDatabase('reports_db.sqlite'))
                     table_view[i].hide()
-
                     # обработка нажатия на кнопку с номером репорта в frame
-                    button_for_table.clicked.connect(lambda: visible_table_view(list_table_view, list_button_for_table))
-
+                    button_for_table.clicked.connect(lambda: visible_table_view(list_table_view, list_button_for_table,
+                                                                                list_height_table_view))
                 scroll_area.show()
-
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -495,8 +482,19 @@ def search():
 # функция отображения и повторного скрытия таблиц в frame
 # l_t_v = list_table_view = список всех таблиц
 # l_b_t = list_button_for_table = список всех номеров репортов
-def visible_table_view(l_t_v, l_b_t):
+# y_1 - координата строки с номером репорта
+# y_2 = y_1 + 20 - координата таблицы (20 - высота строки с номером репорта)
+# l_h_t_v = list_height_table_view = список высот таблиц (строка с названием колонок + все строки таблицы)
+def visible_table_view(l_t_v, l_b_t, l_h_t_v):
+    # y_1 - координата первой строки номера репорта
+    y_1 = 0
+    # y_2 - координата первой таблицы
+    y_2 = 20
     ii = 0
+    # список новых координат номеров репортов
+    position_y1 = []
+    # список новых координат таблиц
+    position_y2 = []
     # список нажатых кнопок
     list_button_for_table_true = []
     # список отжатых кнопок
@@ -509,12 +507,44 @@ def visible_table_view(l_t_v, l_b_t):
         if not i.isChecked():
             list_button_for_table_false.append(ii)
         ii += 1
+    # вычисляем новые координаты номеров репортов и таблиц в зависимости от списка нажатых (list_button_for_table_true)
+    # и не нажатых (list_button_for_table_false) кнопок
+    for i in range(len(l_h_t_v)):
+        # если нажата кнопка номера репорта
+        if list_button_for_table_true:
+            # перебираем номера нажатых кнопок
+            for ii in list_button_for_table_true:
+                if i == ii:
+                    # добавляем в список координату кнопки номера репорта
+                    position_y1.append(y_1)
+                    # меняем координату кнопки номера репорта, потому что она нажата и появляется таблица с данными
+                    y_1 += 20 + l_h_t_v[i]
+                    # добавляем в список координату таблицы с данными
+                    position_y2.append(y_2)
+                    # меняем координату кнопки номера репорта, потому что она нажата и появляется таблица с данными
+                    y_2 += 20 + l_h_t_v[ii]
+        # если НЕ нажата кнопка номера репорта
+        if list_button_for_table_false:
+            # перебираем номера НЕ нажатых кнопок
+            for ii in list_button_for_table_false:
+                if i == ii:
+                    # добавляем в список Не нажатой координату кнопки номера репорта
+                    position_y1.append(y_1)
+                    y_1 += 20
+                    # добавляем в список координату таблицы с данными при НЕ нажатой кнопки номера репорта
+                    position_y2.append(y_2)
+                    y_2 += 20
+    # делаем таблицы видимыми или скрываем их в зависимости от статуса
     for b in list_button_for_table_true:
+        l_b_t[b].move(0, position_y1[b])
+        l_t_v[b].setGeometry((QRect(0, position_y2[b], 1460, l_h_t_v[b])))
         # делаем таблицу из списка видимой
         l_t_v[b].setVisible(True)
     for bb in list_button_for_table_false:
+        l_b_t[bb].move(0, position_y1[bb])
         # делаем таблицу из списка снова скрытой
-        l_t_v[bb].setVisible(False)
+        l_t_v[bb].hide()
+
 
 # нажатие на кнопку "Удалить"
 def delete_report():
@@ -539,16 +569,11 @@ button_add.clicked.connect(add_tables)
 # нажатие на кнопку "Поиск"
 button_search.clicked.connect(search)
 
-
-
-
-
 # нажатие на кнопку "Удалить"
 button_delete.clicked.connect(delete_report)
 
 # нажатие на кнопку "Выйти"
 button_log_out.clicked.connect(log_out)
-
 
 window.show()
 sys.exit(app.exec_())
