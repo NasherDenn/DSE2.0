@@ -1,12 +1,8 @@
-import re
-
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import QSqlDatabase
-from PyQt5.QtSql import QSqlQuery
 from PyQt5.QtSql import QSqlQueryModel
-from PyQt5.QtGui import QFontDatabase
 import sys
 from back_end import *
 
@@ -50,7 +46,8 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('A1-2102-RG-047-10-A11 ')
+line_search.setText('A1-5600-RG-005-4-A17-WN')
+line_search.setFocus()
 
 # создаём кнопку "Поиск"
 button_search = QPushButton('Поиск', window)
@@ -96,6 +93,8 @@ font_line_login.setItalic(True)
 line_login.setFont(font_line_login)
 # дополнительные параметры
 line_login.setEchoMode(QLineEdit.Normal)
+# устанавливаем исчезающий текст
+line_login.setPlaceholderText('login')
 
 # создаём однострочное поле для ввода пароля
 line_password = QLineEdit(window)
@@ -111,6 +110,8 @@ font_line_password.setItalic(True)
 line_password.setFont(font_line_password)
 # дополнительные параметры
 line_password.setEchoMode(QLineEdit.Password)
+# устанавливаем исчезающий текст
+line_password.setPlaceholderText('password')
 
 # устанавливаем надпись "Логин"
 label_login = QLabel('Логин', window)
@@ -276,7 +277,32 @@ scroll_area.setGeometry(20, 140, 1481, 650)
 
 # нажатие кнопки "Войти"
 def log_in():
-    if line_login.text() == 'admin' and line_password.text() == 'admin':
+    # если ничего не введено в поля "Логин" и "Пароль"
+    if line_login.text() == '' and line_password.text() == '':
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы ничего не ввели в поля "Логин" и "Пароль"!!!',
+            buttons=QMessageBox.Ok
+        )
+    # если ничего не введено в поле "Логин"
+    elif line_login.text() == '':
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы не заполнили поле "Логин"!!!',
+            buttons=QMessageBox.Ok
+        )
+    # если ничего не введено в поле "Пароль"
+    elif line_password.text() == '':
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы не заполнили поле "Пароль"!!!',
+            buttons=QMessageBox.Ok
+        )
+    # если правильно введён логин и пароль
+    elif line_login.text() == 'admin' and line_password.text() == 'admin':
         # делаем активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
         button_repair.setDisabled(False)
         button_delete.setDisabled(False)
@@ -286,6 +312,7 @@ def log_in():
         line_password.clear()
         # блокируем кнопку "Войти"
         button_log_in.setDisabled(True)
+    # если неправильно введён логин или пароль
     else:
         QMessageBox.information(
             window,
@@ -306,8 +333,9 @@ def search():
     if line_search.text():
         # удаляем обозначения дюймов "
         if re.findall(r'\'\'|"|”', line_search.text()):
-            line_for_search = re.sub(r'"|\'\'', '', line_search.text())
-        line_for_search = line_search.text()
+            line_for_search = re.sub(r'"|\'\'', '', line_search.text()).upper()
+        # получаем текст из поля для ввода и приводим его в верхний регистр
+        line_for_search = line_search.text().upper()
         # создаём соединение с базой данной
         con = QSqlDatabase.addDatabase('QSQLITE')
         # передаём имя базы данных для открытия
@@ -324,6 +352,8 @@ def search():
             table_for_search_line = []
             # список таблиц в которой есть искомый чертёж
             table_for_search_drawing = []
+            # список таблиц в которой есть искомый номер репорта
+            table_for_search_report = []
             # проверяем наличие областей tableView для вывода данных
             # если есть, то закрываем их, чтобы не наслаивались
             if window.findChildren(QTableView):
@@ -351,13 +381,37 @@ def search():
                                 'SELECT Drawing FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall():
                             table_for_search_drawing.append(i)
                 cur.close()
-            # сортировка по возрастанию для вывода в хронологическом порядке
-            table_for_search_line.sort()
-            table_for_search_drawing.sort()
+
+            # если в поле для поиска указан номер репорта
+            if line_for_search[:6] == '04-YKR':
+                # перебираем sqlite_master в поиске репорта
+                # подключаемся в базе данных
+                conn = sqlite3.connect('reports_db.sqlite')
+                cur = conn.cursor()
+                # меняем '-' на '_'
+                line_for_search_report = re.sub('-', '_', line_for_search)
+                # если нашли номер репорта в sqlite_master
+                if cur.execute(
+                        'SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(line_for_search_report)):
+                    table_for_search_report.append(cur.execute(
+                        'SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(
+                            line_for_search_report)).fetchall())
+                cur.close()
+
+            # если для поиска указан не номер репорта
+            def depthCount(x, depth=0):
+                if not x or not isinstance(x, list):
+                    return depth
+                return max(depthCount(x[0], depth + 1),
+                           depthCount(x[1:], depth))
+
+            if depthCount(table_for_search_report) == 0:
+                table_for_search_report = [[]]
             # если найден номер линии или номер чертежа, то показываем область для таблицы с найденными данными
-            if table_for_search_line or table_for_search_drawing:
+            if table_for_search_line or table_for_search_drawing or table_for_search_report:
                 # считаем количество найденных таблиц для вывода нужного количества tableView
-                count_table_view = len(table_for_search_line) + len(table_for_search_drawing)
+                count_table_view = len(table_for_search_line) + len(table_for_search_drawing) + len(
+                    table_for_search_report[0])
                 # список названий таблицы для переменной при создании tableView
                 table_view = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
                               'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
@@ -370,16 +424,22 @@ def search():
                 cur = conn.cursor()
                 # список количества строк в каждой найденной таблице
                 count_row_table_view = []
-                for i in table_for_search_line:
-                    # количество строк в одной найденной таблице count_row_table_view[0][0]
-                    count_row_table = cur.execute(
-                        'SELECT COUNT(*) FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall()
-                    count_row_table_view.append(count_row_table[0][0])
-                for i in table_for_search_drawing:
-                    # количество строк в одной найденной таблице count_row_table[0][0]
-                    count_row_table = cur.execute(
-                        'SELECT COUNT(*) FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall()
-                    count_row_table_view.append(count_row_table[0][0])
+                if table_for_search_line:
+                    for i in table_for_search_line:
+                        # количество строк в одной найденной таблице count_row_table_view[0][0]
+                        count_row_table = cur.execute(
+                            'SELECT COUNT(*) FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall()
+                        count_row_table_view.append(count_row_table[0][0])
+                if table_for_search_drawing:
+                    for i in table_for_search_drawing:
+                        # количество строк в одной найденной таблице count_row_table[0][0]
+                        count_row_table = cur.execute(
+                            'SELECT COUNT(*) FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall()
+                        count_row_table_view.append(count_row_table[0][0])
+                if table_for_search_report:
+                    for i in table_for_search_report[0]:
+                        count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0])).fetchall()
+                        count_row_table_view.append(count_row_table[0][0])
                 # закрываем соединение
                 cur.close()
                 # общее количество строк в найденных таблицах для длины frame
@@ -390,8 +450,9 @@ def search():
                 one_row = 25
                 # высота фрейма = общее количество строк в найденных таблицах * высоту одной строки +
                 # + количество таблиц * 2 (кнопка номера репорта и строка названий столбцов) * 20 (высота одной
-                # строки) + 20 (высота первой строки с номером первого репорта)
-                w = sum_row_table * one_row + len(count_row_table_view) * 2 * 20 + 20
+                # строки) + 20 (высота первой строки с номером первого репорта) + количество таблиц * 20 (расстояние
+                # между таблицами в открытом виде
+                w = sum_row_table * one_row + len(count_row_table_view) * 2 * 20 + 20 + len(count_row_table_view) * 20
                 # помещаем frame в область с полосой прокрутки
                 scroll_area.setWidget(frame_for_table)
                 # задаём размер frame
@@ -403,27 +464,72 @@ def search():
                 list_table_view = []
                 list_button_for_table = []
                 list_height_table_view = []
+                # вытягиваем данные из найденных таблиц, формируем таблицу, кнопку названия репорта
                 for i in range(count_table_view):
                     # высота одной таблицы tableView = количество строк в одной таблице * высоту одной строки +
                     # + высота строки названия столбцов
                     height = count_row_table_view[i] * one_row + one_row
                     # создаём переменную названия кнопок номеров репортов для вывода данных
+
                     if table_for_search_line:
                         button_for_table = table_for_search_line[i]
+                        # переменная для поиска даты и work order репорта в таблице master
+                        for_w_o = button_for_table[(button_for_table.index('_04') + 1):]
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
+                        # переменная номера work order
+                        w_o = cur.execute('SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
+                            for_w_o)).fetchall()
+                        # закрываем соединение
+                        cur.close()
                         button_for_table = re.sub(r'_', '-', button_for_table)
                         ind = button_for_table.index('-04') + 1
                         # название кнопки по номеру репорта
                         second_underlining = button_for_table[ind:]
+                        # добавляем к названию кнопки дату и work order
+                        second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][1]
                     if table_for_search_drawing:
                         button_for_table = table_for_search_drawing[i]
+                        # переменная для поиска даты и work order репорта в таблице master
+                        for_w_o = button_for_table[(button_for_table.index('_04') + 1):]
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
+                        # переменная номера work order
+                        w_o = cur.execute('SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
+                            for_w_o)).fetchall()
+                        # закрываем соединение
+                        cur.close()
                         button_for_table = re.sub(r'_', '-', button_for_table)
                         ind = button_for_table.index('-04') + 1
                         # название кнопки по номеру репорта
                         second_underlining = button_for_table[ind:]
+                        # добавляем к названию кнопки дату и work order
+                        second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][1]
+                    # определяем глубину вложенности списка заданного для поиска репорта
+                    if depthCount(table_for_search_report) == 1:
+                        table_for_search_report = []
+                    if table_for_search_report:
+                        button_for_table = table_for_search_report[0][i][0]
+                        # переменная для поиска даты и work order репорта в таблице master
+                        for_w_o = button_for_table[(button_for_table.index('_04') + 1):]
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
+                        # переменная номера work order
+                        w_o = cur.execute('SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
+                            for_w_o)).fetchall()
+                        # закрываем соединение
+                        cur.close()
+                        button_for_table = re.sub(r'_', '-', button_for_table)
+                        ind = button_for_table.index('-04') + 1
+                        # название кнопки по номеру репорта
+                        second_underlining = button_for_table[ind:]
+                        # добавляем к названию кнопки дату и work order
+                        second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][1]
                     # задаём название кнопки по номеру репорта и помещаем внутрь frame
                     button_for_table = QPushButton(second_underlining, frame_for_table)
                     # задаём размеры и место расположения кнопки во frame
-                    button_for_table.setGeometry(QRect(0, y1, 300, 20))
+                    button_for_table.setGeometry(QRect(0, y1, 500, 20))
+                    # print('ok')
                     # задаём стиль шрифта
                     font_button_for_table = QFont()
                     font_button_for_table.setFamily(u"Calibri")
@@ -455,21 +561,106 @@ def search():
                     table_view[i].setAlternatingRowColors(True)
                     table_view[i].setModel(sqm)
                     # создаём запрос
-                    # выводим данные в форму из найденных таблиц по номеру линии в таблице
+                    # выводим данные в форму из найденных таблиц по номеру линии, чертежа или репорта
                     if len(table_for_search_line) > 0:
                         sqm.setQuery(
                             'SELECT * FROM {} WHERE Line="{}"'.format(table_for_search_line[i], line_for_search),
                             db=QSqlDatabase('reports_db.sqlite'))
                     # выводим данные в форму из найденных таблиц по номеру чертежа в таблице
-                    else:
+                    if len(table_for_search_drawing) > 0:
                         sqm.setQuery(
                             'SELECT * FROM {} WHERE Drawing="{}"'.format(table_for_search_drawing[i], line_for_search),
                             db=QSqlDatabase('reports_db.sqlite'))
+                    if len(table_for_search_report) > 0:
+                        if len(table_for_search_report[0]) > 0:
+                            sqm.setQuery('SELECT * FROM {}'.format(table_for_search_report[0][i][0]),
+                                         db=QSqlDatabase('reports_db.sqlite'))
                     table_view[i].hide()
                     # обработка нажатия на кнопку с номером репорта в frame
                     button_for_table.clicked.connect(lambda: visible_table_view(list_table_view, list_button_for_table,
                                                                                 list_height_table_view))
+                    # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
+                    table_view[i].setCornerButtonEnabled(True)
+                    # подключаемся в базе данных
+                    conn = sqlite3.connect('reports_db.sqlite')
+                    cur = conn.cursor()
+                    # перебираем таблицы
+                    if table_for_search_line:
+                        reader = cur.execute("SELECT * FROM {}".format(table_for_search_line[i]))
+                    elif table_for_search_drawing:
+                        reader = cur.execute("SELECT * FROM {}".format(table_for_search_drawing[i]))
+                    elif table_for_search_report:
+                        reader = cur.execute("SELECT * FROM {}".format(table_for_search_report[0][i][0]))
+                    # получаем список названий столбцов
+                    name_column = [x[0] for x in reader.description]
+                    # получаем номер столбца с номинальной толщиной
+                    number_column_nominal_thickness = name_column.index('Nominal_thickness')
+
+                    # # кортеж списков (всех строк) в каждой таблице
+                    # string_table = reader.fetchall()
+                    # # print(string_table)
+                    # # список индексов минимальных значений в таблице
+                    # list_index_minimum_thickness = []
+                    # # срез - список значений для поиска минимального значения
+                    # for j in range(len(string_table)):
+                    #     a = string_table[j][number_column_nominal_thickness + 1:]
+                    #     # минимальное значение
+                    #     minim = float(100000)
+                    #     # находим минимальное значение
+                    #     for ii in a:
+                    #         # если нашли число
+                    #         if re.findall(r'\d', ii):
+                    #             # меняем недопустимый символ ',' на '.'
+                    #             if re.findall(r',', ii):
+                    #                 ii = re.sub(',', r'.', ii)
+                    #             a = float(ii)
+                    #             if float(a) < float(minim):
+                    #                 minim = a
+                    #     index_minimum_thickness = 0
+                    #     for ii in string_table[j]:
+                    #         if str(minim) != ii:
+                    #             index_minimum_thickness += 1
+                    #         else:
+                    #             break
+                    #     # добавляем в список индекс минимального значения каждой строки
+                    #     list_index_minimum_thickness.append(index_minimum_thickness)
+
+                    # закрываем соединение
+                    cur.close()
+
+                    # переопределяем цвет для окрашивания столбца с номинальной толщиной
+                    class ColorNominalThickness(QItemDelegate):
+                        def __init__(self):
+                            super().__init__()
+                            self.filter = ''
+
+                        def paint(self, painter, option, index):
+                            # выбираем зелёный цвет для столбца с номинальной толщиной
+                            painter.fillRect(option.rect, QColor(35, 198, 23, 180))
+                            return QItemDelegate.paint(self, painter, option, index)
+
+                    # создаём модель
+                    color_nominal_thickness = ColorNominalThickness()
+                    # окрашиваем столбец с номинальной толщиной в зелёный цвет
+                    table_view[i].setItemDelegateForColumn(number_column_nominal_thickness, color_nominal_thickness)
+
+                    # # переопределяем цвет для окрашивания ячейки с минимальной толщиной
+                    # class ColorMinimumThickness(QItemDelegate):
+                    #     def __init__(self):
+                    #         super().__init__()
+                    #         self.filter = ''
+                    #
+                    #     def paint(self, painter, option, index):
+                    #         # выбираем оранжевый цвет для ячеек с минимальной толщиной
+                    #         painter.fillRect(option.rect, QColor(255, 158, 1))
+                    #         return QItemDelegate.paint(self, painter, option, index)
+                    # # создаём модель
+                    # color_minimum_thickness = ColorMinimumThickness()
+                    # for j in range(len(string_table)):
+                    #     table_view[i].setItemDelegateForRow(j, color_minimum_thickness)
+
                 scroll_area.show()
+
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -518,11 +709,11 @@ def visible_table_view(l_t_v, l_b_t, l_h_t_v):
                     # добавляем в список координату кнопки номера репорта
                     position_y1.append(y_1)
                     # меняем координату кнопки номера репорта, потому что она нажата и появляется таблица с данными
-                    y_1 += 20 + l_h_t_v[i]
+                    y_1 += 40 + l_h_t_v[i]
                     # добавляем в список координату таблицы с данными
                     position_y2.append(y_2)
                     # меняем координату кнопки номера репорта, потому что она нажата и появляется таблица с данными
-                    y_2 += 20 + l_h_t_v[ii]
+                    y_2 += 40 + l_h_t_v[ii]
         # если НЕ нажата кнопка номера репорта
         if list_button_for_table_false:
             # перебираем номера НЕ нажатых кнопок
@@ -562,12 +753,19 @@ def log_out():
 
 # нажатие кнопки "Войти"
 button_log_in.clicked.connect(log_in)
+# нажатие на кнопку Enter когда фокус (каретка - мигающий символ "|") находится в поле для ввода логина
+line_login.returnPressed.connect(log_in)
+# нажатие на кнопку Enter когда фокус (каретка - мигающий символ "|") находится в поле для ввода пароля
+line_password.returnPressed.connect(log_in)
 
 # нажатие на кнопку "Добавить"
 button_add.clicked.connect(add_tables)
 
 # нажатие на кнопку "Поиск"
 button_search.clicked.connect(search)
+# нажатие на кнопку Enter когда фокус (каретка - мигающий символ "|") находится в поле для ввода номера линии, чертежа,
+# номера репорта или work order
+line_search.returnPressed.connect(search)
 
 # нажатие на кнопку "Удалить"
 button_delete.clicked.connect(delete_report)
@@ -575,5 +773,11 @@ button_delete.clicked.connect(delete_report)
 # нажатие на кнопку "Выйти"
 button_log_out.clicked.connect(log_out)
 
-window.show()
-sys.exit(app.exec_())
+
+def main():
+    window.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()
