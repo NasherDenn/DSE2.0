@@ -4,12 +4,8 @@ from docx import Document
 import re
 import glob
 import sqlite3
-import time
 
 from YKR.props import DB_NAME
-
-# время начала работы
-start = time.time()
 
 
 # функция для извлечения данных из репортов и записи в базу данных при нажатии на кнопку "Добавить"
@@ -292,6 +288,16 @@ def add_table():
                         name_column[i].remove(name_column[i][ii])
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, 'Horizontal')
+
+                    # если DIA x Nom в названии столбца, то записать Nominal_thickness
+                    elif re.findall(r'Diametr|Dia|DIA|dia|DIА|Día', name_column[i][ii]) and re.findall(
+                            r'thicknes|Thicknes|Nom', name_column[i][ii]):
+                        # удаляем найденное значение
+                        name_column[i].remove(name_column[i][ii])
+                        # вставляем на удалённое место допустимое название столбца
+                        name_column[i].insert(ii, 'Nominal_thickness')
+
+
                     elif re.findall(r'Diametr|Dia|DIA|dia|DIА|Día', name_column[i][ii]):
                         # удаляем найденное значение
                         name_column[i].remove(name_column[i][ii])
@@ -651,10 +657,9 @@ def add_table():
     # print('------------------------------------------------------------------------------------------------')
 
 
-if __name__ == '__main__':
+def main():
     add_table()
-    # время окончания работы
-    end = time.time()
-    # затраченное время на работу
-    total_time = int(end) - int(start)
-    # print(total_time)
+
+
+if __name__ == '__main__':
+    main()
