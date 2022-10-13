@@ -5,6 +5,20 @@ from PyQt5.QtSql import QSqlDatabase
 from PyQt5.QtSql import QSqlQueryModel
 import sys
 from back_end import *
+import logging
+import os
+
+# получаем имя машины с которой был осуществлён вход в программу
+uname = os.environ.get('USERNAME')
+# настраиваем систему логирования
+logging.basicConfig(level=logging.INFO,
+                    handlers=[logging.FileHandler(filename='gui_log.log', mode='w', encoding='utf-8')],
+                    format='%(asctime)s [%(levelname)s] Пользователь: %(user)s - %(message)s', )
+# дополняем базовый формат записи лог сообщения данными о пользователе
+logger = logging.getLogger()
+logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
+
+logger_with_user.info('Запуск программы')
 
 # создаём приложение
 app = QApplication(sys.argv)
@@ -46,7 +60,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('28235724')
+line_search.setText('28144187')
 line_search.setFocus()
 
 # создаём кнопку "Поиск"
@@ -76,7 +90,7 @@ font_button_exit.setPointSize(14)
 button_exit.setFont(font_button_exit)
 # дополнительные параметры
 button_exit.setFocusPolicy(Qt.ClickFocus)
-# Закрыть из программы при нажатии на кнопку "Закрыть"
+# Закрытие программы при нажатии на кнопку "Закрыть"
 button_exit.clicked.connect(qApp.exit)
 
 # создаём однострочное поле для ввода логина
@@ -198,7 +212,6 @@ button_add.setFont(font_button_add)
 # дополнительные параметры
 button_add.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Добавить" до авторизации
-# button_add.setDisabled(True)
 button_add.setDisabled(False)
 
 # создаём кнопку "Редактировать"
@@ -285,6 +298,7 @@ def log_in():
             'Вы ничего не ввели в поля "Логин" и "Пароль"!!!',
             buttons=QMessageBox.Ok
         )
+        logger_with_user.error('Попытка авторизоваться - не заполнены поля "Логин" и "Пароль"')
     # если ничего не введено в поле "Логин"
     elif line_login.text() == '':
         QMessageBox.information(
@@ -293,6 +307,8 @@ def log_in():
             'Вы не заполнили поле "Логин"!!!',
             buttons=QMessageBox.Ok
         )
+        logger_with_user.error(
+            'Попытка авторизоваться - не заполнено поле "Логин", указан пароль - "{}"'.format(line_password.text()))
     # если ничего не введено в поле "Пароль"
     elif line_password.text() == '':
         QMessageBox.information(
@@ -301,6 +317,8 @@ def log_in():
             'Вы не заполнили поле "Пароль"!!!',
             buttons=QMessageBox.Ok
         )
+        logger_with_user.error(
+            'Попытка авторизоваться - Не заполнено поле "Пароль", указан логин - "{}"'.format(line_login.text()))
     # если правильно введён логин и пароль
     elif line_login.text() == 'admin' and line_password.text() == 'admin':
         # делаем активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
@@ -312,6 +330,7 @@ def log_in():
         line_password.clear()
         # блокируем кнопку "Войти"
         button_log_in.setDisabled(True)
+        logger_with_user.error('Пользователь авторизовался')
     # если неправильно введён логин или пароль
     else:
         QMessageBox.information(
@@ -320,12 +339,16 @@ def log_in():
             'Вы ввели не правильный логин или пароль!!!',
             buttons=QMessageBox.Ok
         )
+        logger_with_user.error(
+            'Попытка авторизоваться - Введён неверный логин "{}" или пароль "{}"'.format(line_login.text(),
+                                                                                         line_password.text()))
 
 
 # нажатие на кнопку "Добавить"
 def add_tables():
     name_dir = QFileDialog.getExistingDirectory(None, 'Выбрать папку', '.')
     add_table(name_dir)
+    logger_with_user.info('Добавление новых репортов в базу данных')
 
 
 # нажатие на кнопку "Поиск"
@@ -334,8 +357,9 @@ def search():
         # удаляем обозначения дюймов "
         if re.findall(r'\'\'|"|”', line_search.text()):
             line_for_search = re.sub(r'"|\'\'', '', line_search.text()).upper()
-        # получаем текст из поля для ввода и приводим его в верхний регистр
-        line_for_search = line_search.text().upper()
+        else:
+            # получаем текст из поля для ввода и приводим его в верхний регистр
+            line_for_search = line_search.text().upper()
         # создаём соединение с базой данной
         con = QSqlDatabase.addDatabase('QSQLITE')
         # передаём имя базы данных для открытия
@@ -346,6 +370,7 @@ def search():
                 None,
                 'App name Error',
                 'Error to connect to the database')
+            logger_with_user.error('Отсутствует соединение с базой данных')
             sys.exit()
         else:
             # список таблиц в которой есть искомая линия
@@ -648,9 +673,12 @@ def search():
                                                        list_height_table_view))
                         # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
                         table_view[i].setCornerButtonEnabled(True)
+                        # горизонтальная полоса прокрутки в пределах отображения одной таблицы
+                        table_view[i].setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
                         # подключаемся в базе данных
                         conn = sqlite3.connect('reports_db.sqlite')
                         cur = conn.cursor()
+
                         # перебираем таблицы и извлекаем данные
                         if table_for_search_line:
                             reader = cur.execute("SELECT * FROM {}".format(table_for_search_line[i]))
@@ -662,59 +690,30 @@ def search():
                             reader = cur.execute("SELECT * FROM {}".format(table_for_search_wo[i][0][0]))
                         # получаем список названий столбцов
                         name_column = [x[0] for x in reader.description]
-                        # получаем номер столбца с номинальной толщиной
-                        print(name_column)
-                        number_column_nominal_thickness = name_column.index('Nominal_thickness')
-
-                        # # кортеж списков (всех строк) в каждой таблице
-                        # string_table = reader.fetchall()
-                        # # print(string_table)
-                        # # список индексов минимальных значений в таблице
-                        # list_index_minimum_thickness = []
-                        # # срез - список значений для поиска минимального значения
-                        # for j in range(len(string_table)):
-                        #     a = string_table[j][number_column_nominal_thickness + 1:]
-                        #     # минимальное значение
-                        #     minim = float(100000)
-                        #     # находим минимальное значение
-                        #     for ii in a:
-                        #         # если нашли число
-                        #         if re.findall(r'\d', ii):
-                        #             # меняем недопустимый символ ',' на '.'
-                        #             if re.findall(r',', ii):
-                        #                 ii = re.sub(',', r'.', ii)
-                        #             a = float(ii)
-                        #             if float(a) < float(minim):
-                        #                 minim = a
-                        #     index_minimum_thickness = 0
-                        #     for ii in string_table[j]:
-                        #         if str(minim) != ii:
-                        #             index_minimum_thickness += 1
-                        #         else:
-                        #             break
-                        #     # добавляем в список индекс минимального значения каждой строки
-                        #     list_index_minimum_thickness.append(index_minimum_thickness)
-
-                        # закрываем соединение
                         cur.close()
+                        # получаем номер столбца с номинальной толщиной
+                        if 'Nominal_thickness' in name_column:
+                            number_column_nominal_thickness = name_column.index('Nominal_thickness')
 
-                        # переопределяем цвет для окрашивания столбца с номинальной толщиной
-                        class ColorNominalThickness(QItemDelegate):
-                            def __init__(self):
-                                super().__init__()
-                                self.filter = ''
+                            # переопределяем цвет для окрашивания столбца с номинальной толщиной
+                            class ColorNominalThickness(QItemDelegate):
+                                def __init__(self):
+                                    super().__init__()
+                                    self.filter = ''
 
-                            def paint(self, painter, option, index):
-                                # выбираем зелёный цвет для столбца с номинальной толщиной
-                                painter.fillRect(option.rect, QColor(35, 198, 23, 180))
-                                return QItemDelegate.paint(self, painter, option, index)
+                                def paint(self, painter, option, index):
+                                    # выбираем зелёный цвет для столбца с номинальной толщиной
+                                    painter.fillRect(option.rect, QColor(35, 198, 23, 180))
+                                    return QItemDelegate.paint(self, painter, option, index)
 
-                        # создаём модель
-                        color_nominal_thickness = ColorNominalThickness()
-                        # окрашиваем столбец с номинальной толщиной в зелёный цвет
-                        table_view[i].setItemDelegateForColumn(number_column_nominal_thickness, color_nominal_thickness)
+                            # создаём модель
+                            color_nominal_thickness = ColorNominalThickness()
+                            # окрашиваем столбец с номинальной толщиной в зелёный цвет
+                            table_view[i].setItemDelegateForColumn(number_column_nominal_thickness,
+                                                                   color_nominal_thickness)
                     scroll_area.show()
-
+                    logger_with_user.info(
+                        'Произведён поиск данных по номеру {}. Данные найдены'.format(line_search.text()))
                 # сообщение о том, что ничего не найдено
                 else:
                     QMessageBox.information(
@@ -722,7 +721,8 @@ def search():
                         'Внимание',
                         'Ничего не найдено!'
                     )
-
+                    logger_with_user.info(
+                        'Произведён поиск данных по номеру {}. Данные НЕ найдены'.format(line_search.text()))
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -730,6 +730,7 @@ def search():
             'Внимание',
             'Вы не ввели ни номер линии, ни номер чертежа, ни номер репорта, ни номер word order для поиска данных'
         )
+        logger_with_user.info('Попытка поиска данных с пустой строкой поиска')
 
 
 # функция отображения и повторного скрытия таблиц в frame
@@ -811,6 +812,7 @@ def log_out():
     button_log_out.setDisabled(True)
     # разблокируем кнопку "Войти"
     button_log_in.setDisabled(False)
+    logger_with_user.info('Пользователь вышел')
 
 
 # нажатие кнопки "Войти"
@@ -837,8 +839,11 @@ button_log_out.clicked.connect(log_out)
 
 
 def main():
-    window.show()
-    sys.exit(app.exec_())
+    try:
+        window.show()
+        sys.exit(app.exec_())
+    finally:
+        logger_with_user.info('Программа закрыта')
 
 
 if __name__ == '__main__':
