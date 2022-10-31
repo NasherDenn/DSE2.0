@@ -4,7 +4,6 @@ from docx import Document
 import re
 import glob
 import sqlite3
-
 from YKR.props import DB_NAME
 
 
@@ -14,7 +13,6 @@ def add_table():
     # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
     target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2022\1\*.docx'
     # target_dir_docx = name_dir + r'\*.docx'
-
     # присваиваем переменной список найденных файлов с расширением docx
     list_find_docx = glob.glob(target_dir_docx)
 
@@ -59,7 +57,7 @@ def add_table():
                     for cell in row.cells:
                         data_header[i][j].append(cell.text)
             pp = 0
-            # словарь номера репорта, даты репорта, номера Work Order, номера линии, номера чертежа
+            # словарь номера репорта, даты репорта, номера Work Order
             rep_number = {}
             for i in data_header[0]:
                 p = 0
@@ -288,7 +286,6 @@ def add_table():
                         name_column[i].remove(name_column[i][ii])
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, 'Horizontal')
-
                     # если DIA x Nom в названии столбца, то записать Nominal_thickness
                     elif re.findall(r'Diametr|Dia|DIA|dia|DIА|Día', name_column[i][ii]) and re.findall(
                             r'thicknes|Thicknes|Nom', name_column[i][ii]):
@@ -296,8 +293,6 @@ def add_table():
                         name_column[i].remove(name_column[i][ii])
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, 'Nominal_thickness')
-
-
                     elif re.findall(r'Diametr|Dia|DIA|dia|DIА|Día', name_column[i][ii]):
                         # удаляем найденное значение
                         name_column[i].remove(name_column[i][ii])
@@ -430,6 +425,12 @@ def add_table():
                         name_column[i].remove(name_column[i][ii])
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, b)
+                    if re.findall(r'\.', name_column[i][ii]):
+                        b = re.sub(r'\.', '_', name_column[i][ii])
+                        # удаляем найденное значение
+                        name_column[i].remove(name_column[i][ii])
+                        # вставляем на удалённое место допустимое название столбца
+                        name_column[i].insert(ii, b)
                     if re.findall(r'\n', name_column[i][ii]):
                         # меняем найденное значение
                         b = re.sub(r'\n', '', name_column[i][ii])
@@ -438,6 +439,12 @@ def add_table():
                         # вставляем на удалённое место допустимое название столбца
                         name_column[i].insert(ii, b)
                     if name_column[i][ii].isnumeric():
+                        b = '_' + name_column[i][ii] + '_'
+                        # удаляем найденное значение
+                        name_column[i].remove(name_column[i][ii])
+                        # вставляем на удалённое место допустимое название столбца
+                        name_column[i].insert(ii, b)
+                    if name_column[i][ii][0].isnumeric():
                         b = '_' + name_column[i][ii] + '_'
                         # удаляем найденное значение
                         name_column[i].remove(name_column[i][ii])
@@ -463,7 +470,6 @@ def add_table():
                             b = re.sub(r'\n', ' ', clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii].remove(clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii].insert(iii, b)
-
             # активатор наличия номера чертежа в ячейке с номером линии
             sh_drawing = 0
             for i in list(clear_table_bottom.keys()):
@@ -477,11 +483,11 @@ def add_table():
                                       r'-?\s?'
                                       r'\D{2}'
                                       r'-?\s?'
-                                      r'\d{3}', clear_table_bottom[i][ii][iii]) and re.findall(r'KE01-.+',
+                                      r'\d{3}', clear_table_bottom[i][ii][iii]) and re.findall(r'KE01-.+|TR01-.+',
                                                                                                clear_table_bottom[i][
                                                                                                    ii][iii]):
                             # если нашли, находим номер чертежа
-                            d = re.findall(r'KE01-.+', clear_table_bottom[i][ii][iii])[0]
+                            d = re.findall(r'KE01-.+|TR01-.+', clear_table_bottom[i][ii][iii])[0]
                             # удаляем номер чертежа из ячейки с номером линии
                             clear_table_bottom[i][ii][iii] = clear_table_bottom[i][ii][iii].replace(d, '')
                             # удаляем пустые символы, оставшиеся в ячейке
@@ -495,10 +501,401 @@ def add_table():
                 if sh_drawing != 0:
                     name_column[i].insert(1, 'Drawing')
 
+            # проверяем таблицу на тип "сетка", если первые строки имеют только два значения на всю длину списка
+            # set == 2 и значения "Line|Tag", "Diameter", "Nominal thickness", "Item description", то таблица
+            # является "сеткой"
+            # тогда первое значение из set - название столбца, второе - значение на все строки
+            # уникальное название столбца в случае репорта "сетка"
+            unique_name_column = []
+            # уникальное значение для строки в случае репорта "сетка"
+            unique_value_table = []
+            # список строк на удаление
+            list_for_remove = []
+            # список номеров таблиц в которых удалять строки
+            list_index_remove = []
+            # перебираем строки
+            for ii in clear_table_bottom.keys():
+                # переменная номеров строк
+                index_set = 0
+                for iii in clear_table_bottom[ii]:
+                    # если в строке всего два уникальных названия, то первое - название столбца, последнее - значение
+                    if len(set(iii)) == 2:
+                        # первое - iii[:1] - название для столбца
+                        # второе - iii[-1:] - значение для строк
+                        unique_name_column.insert(0, iii[:1])
+                        unique_value_table.insert(0, iii[-1:])
+                        list_for_remove.insert(0, clear_table_bottom[ii][index_set])
+                        list_index_remove.insert(0, ii)
+                    index_set += 1
+            # преобразуем список списков в список строк
+            for i in range(len(unique_value_table)):
+                j = unique_value_table[i]
+                unique_value_table.remove(j)
+                unique_value_table.insert(i, j[0])
+            # удаляем из таблицы строки, которые должны быть названиями столбцов и их значениями
+            e = 0
+            for i in list_index_remove:
+                clear_table_bottom[i].remove(list_for_remove[e])
+                e += 1
+
+            # перебираем название столбцов
+            for i in name_column.keys():
+                # если всего два уникальных названия
+                if len(set(name_column[i])) == 2:
+                    # и первое "Line"
+                    if re.findall(r'Line|line|Tag|tag|Contr|contr|Objec|objec', name_column[i][0]):
+                        # то добавляем в список уникальных столбцов
+                        unique_name_column.insert(0, 'Line')
+                        # и значений строк
+                        # проверяем значение на номер линии и номер чертежа в одной ячейке (последней)
+                        # name_column[i][len(name_column[i]) - 1]
+                        if re.findall(r'A1|B0|C2|C3|D1|D6|D7|H1|H2|M1|M2.+KE01|TR01',
+                                      name_column[i][len(name_column[i]) - 1]):
+                            # переменная для отделения номера линии от номера чертежа
+                            rebuild = name_column[i][len(name_column[i]) - 1]
+                            # определяем индекс с которого начинается номер чертежа
+                            if rebuild.find('KE01'):
+                                index_drawing = rebuild.find('KE01')
+                            elif rebuild.find('TR01'):
+                                index_drawing = rebuild.find('TR01')
+                            # разъединяем номер линии и номер чертежа
+                            temp_line = rebuild[:index_drawing]
+                            temp_drawing = rebuild[index_drawing:]
+                            # меняем "_" на "-"
+                            temp_line = re.sub('_', '-', temp_line)
+                            temp_drawing = re.sub('_', '-', temp_drawing)
+                            # убираем лишние "-" в начале и в конце
+                            while temp_line[0] == '-':
+                                temp_line = temp_line[1:]
+                            while temp_drawing[0] == '-':
+                                temp_drawing = temp_drawing[1:]
+                            while temp_drawing[-1:] == '-':
+                                temp_drawing = temp_drawing[:-1]
+                            while temp_line[-1:] == '-':
+                                temp_line = temp_line[:-1]
+                            # добавляем в уникальный список значений строк номер линии
+                            unique_value_table.insert(0, temp_line)
+                            list_index_remove.insert(0, i)
+                            # если нашли и номер линии и номер чертежа, то добавляем в уникальный список названий
+                            # столбцов "Drawing"
+                            unique_name_column.insert(1, 'Drawing')
+                            # добавляем в уникальный список значений строк номер чертежа
+                            unique_value_table.insert(1, temp_drawing)
+                            list_index_remove.insert(1, i)
+
+                        # иначе добавляем в уникальный список значений строк номер линии
+                        else:
+                            unique_name_column.insert(0, name_column[i][-1])
+                            list_index_remove.insert(0, i)
+
+                # проверяем есть ли уже добавленный столбец "Line" и его значение в таблицу ранее, когда столбец "Line"
+                # не нашёлся в таблице с данными, но номер линии или чертежа был найден по шаблону в головной таблице
+                if len(set(name_column[i])) == 3:
+                    pass
+
+            # меняем в unique_name_column списки на строки
+            for i in unique_name_column:
+                if type(i) == list:
+                    ind = unique_name_column.index(i)
+                    unique_name_column.remove(i)
+                    unique_name_column.insert(ind, i[0])
+            # дополняем название столбцов новыми названиями из unique_name_column, а после вставляем старые
+            if unique_name_column:
+                j = 0
+                name_column = {}
+                for i in set(list_index_remove):
+                    name_column[i] = []
+                for i in list_index_remove:
+                    name_column[i].append(unique_name_column[j])
+                    j += 1
+                for i in name_column.keys():
+                    for ii in clear_table_bottom[i][0]:
+                        name_column[i].append(ii)
+                for i in clear_table_bottom.keys():
+                    # удаляем из таблиц clear_table_bottom старые названия столбцов
+                    clear_table_bottom[i].pop(0)
+                # приводим названия столбцов к допустимым
+                for i in name_column.keys():
+                    for ii in range(len(name_column[i])):
+                        # проверяем наличие в названиях столбцов возможные недопустимые имена
+                        if re.findall(r'Tag|TAG|Line|LINE', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Line')
+                            # номер колонки с номером линии
+                        elif re.findall(r'item|Item|description|Description', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Item_description')
+                        elif re.findall(r'Section', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Section')
+                        elif re.findall(r'Location', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Location')
+                        elif re.findall(r'Remark', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Remark')
+                        elif re.findall(r'Size|SIZE', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Size')
+                        elif re.findall(r'Vertical', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Vertical')
+                        elif re.findall(r'Horizontal', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Horizontal')
+                        # если DIA x Nom в названии столбца, то записать Nominal_thickness
+                        elif re.findall(r'Diametr|Dia|DIA|dia|DIА|Día', name_column[i][ii]) and re.findall(
+                                r'thicknes|Thicknes|Nom', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Nominal_thickness')
+                        elif re.findall(r'Diametr|Dia|DIA|dia|DIА|Día', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Diameter')
+                        elif re.findall(r'thicknes|Thicknes', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Nominal_thickness')
+                        elif re.findall(r'Extrados', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Extrados')
+                        elif re.findall(r'Intrados', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Intrados')
+                        elif re.findall(r'South|south', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'South')
+                        elif re.findall(r'North|north', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'North')
+                        elif re.findall(r'West|west', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'West')
+                        elif re.findall(r'East|east', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'East')
+                        elif re.findall(r'Top|top', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Top')
+                        elif re.findall(r'Bottom|bottom', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Bottom')
+                        elif re.findall(r'Shell|shell', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Shell')
+                        elif re.findall(r'Plate|plate', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Plate')
+                        elif re.findall(r'Drawing|drawing|Isometr', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Drawing')
+                        elif re.findall(r'Spot', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Spot')
+                        elif re.findall(r'Cente', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Center')
+                        elif re.findall(r'Row', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Row')
+                        elif re.findall(r'Column', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Column')
+                        elif re.findall(r'P&ID', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'P_ID')
+                        elif re.findall(r'Right', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Right')
+                        elif re.findall(r'Left', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Left')
+                        elif re.findall(r'Date|date', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Date')
+                        elif re.findall(r'Distance', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Distance')
+                        elif re.findall(r'Result', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'Result')
+                        elif re.findall(r'№|S/NO|S/N|s/n|s/no|NO|no', name_column[i][ii]):
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, 'S_N')
+                        if re.findall(r'/', name_column[i][ii]):
+                            b = re.sub(r'/', '_', name_column[i][ii])
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+                        if re.findall(r' ', name_column[i][ii]):
+                            b = re.sub(r' ', '_', name_column[i][ii])
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+                        if re.findall(r'\.', name_column[i][ii]):
+                            b = re.sub(r'\.', '_', name_column[i][ii])
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+                        if re.findall(r'\n', name_column[i][ii]):
+                            # меняем найденное значение
+                            b = re.sub(r'\n', '', name_column[i][ii])
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+                        if name_column[i][ii].isnumeric():
+                            b = '_' + name_column[i][ii] + '_'
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+                        if name_column[i][ii][0].isnumeric():
+                            b = '_' + name_column[i][ii] + '_'
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+                        if re.findall(r'\d+-\d+', name_column[i][ii]):
+                            # меняем найденное значение
+                            b = '_' + re.sub('-', '_', name_column[i][ii]) + '_'
+                            # удаляем найденное значение
+                            name_column[i].remove(name_column[i][ii])
+                            # вставляем на удалённое место допустимое название столбца
+                            name_column[i].insert(ii, b)
+
+                # дополняем таблицу clear_table_bottom новыми значениями "Line", "Drawing", Item_description
+                # и т.д. из unique_value_table
+                # счётчики порядковых номеров позиций вставки новых данных из unique_value_table в clear_table_bottom
+                i_0 = 0
+                i_1 = 0
+                i_2 = 0
+                i_3 = 0
+                i_4 = 0
+                i_5 = 0
+                i_6 = 0
+                i_7 = 0
+                i_8 = 0
+                i_9 = 0
+                i_10 = 0
+                for i in range(len(list_index_remove)):
+                    if list_index_remove[i] == 0:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_0, unique_value_table[i])
+                        i_0 += 1
+                    if list_index_remove[i] == 1:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_1, unique_value_table[i])
+                        i_1 += 1
+                    if list_index_remove[i] == 2:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_2, unique_value_table[i])
+                        i_2 += 1
+                    if list_index_remove[i] == 3:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_3, unique_value_table[i])
+                        i_3 += 1
+                    if list_index_remove[i] == 4:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_4, unique_value_table[i])
+                        i_4 += 1
+                    if list_index_remove[i] == 5:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_5, unique_value_table[i])
+                        i_5 += 1
+                    if list_index_remove[i] == 6:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_6, unique_value_table[i])
+                        i_6 += 1
+                    if list_index_remove[i] == 7:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_7, unique_value_table[i])
+                        i_7 += 1
+                    if list_index_remove[i] == 8:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_8, unique_value_table[i])
+                        i_8 += 1
+                    if list_index_remove[i] == 9:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_9, unique_value_table[i])
+                        i_9 += 1
+                    if list_index_remove[i] == 10:
+                        for ii in clear_table_bottom[list_index_remove[i]]:
+                            ii.insert(i_10, unique_value_table[i])
+                        i_10 += 1
+
             # активатор отсутствия Line в основной таблице
             sh_line = 0
             # проверяем каждую таблицу на наличие столбца Line, если его нет, то ищем колонку в головной
             # таблице и добавляем её в rep_number
+
             for i in list(name_column.keys()):
                 if 'Line' not in name_column[i]:
                     # ищем в головной таблице 'Line'
@@ -556,6 +953,14 @@ def add_table():
                         # добавляем номер линии в столбец
                         clear_table_bottom[i][ii].insert(0, line_for_head)
 
+            # меняем все "," на ".", убираем все (") в clear_table_bottom, для поиска минимального значения в выводимой
+            # таблице
+            for i in list(clear_table_bottom.keys()):
+                for ii in range(len(clear_table_bottom[i])):
+                    for iii in range(len(clear_table_bottom[i][ii])):
+                        clear_table_bottom[i][ii][iii] = re.sub(',', '.', clear_table_bottom[i][ii][iii])
+                        clear_table_bottom[i][ii][iii] = re.sub('\'+|\'+|”|″|″', '', clear_table_bottom[i][ii][iii])
+
             # создаём подключение к базе данных
             conn = sqlite3.connect(DB_NAME)
             cur = conn.cursor()
@@ -571,7 +976,7 @@ def add_table():
                         cur.execute(
                             'CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
                         conn.commit()
-                    except sqlite3.OperationalError:
+                    except (sqlite3.OperationalError, KeyError):
                         mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
                         message_column.append(mess)
                         dont_save_tables.append(name_clear_table)
