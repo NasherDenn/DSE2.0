@@ -5,6 +5,7 @@ from PyQt5.QtSql import QSqlDatabase
 from PyQt5.QtSql import QSqlQueryModel
 import sys
 from back_end import *
+from gui_create_report import *
 import logging
 import os
 
@@ -12,7 +13,7 @@ import os
 uname = os.environ.get('USERNAME')
 # настраиваем систему логирования
 logging.basicConfig(level=logging.INFO,
-                    handlers=[logging.FileHandler(filename='gui_log.log', mode='w', encoding='utf-8')],
+                    handlers=[logging.FileHandler(filename='gui_log.log', mode='a', encoding='utf-8')],
                     format='%(asctime)s [%(levelname)s] Пользователь: %(user)s - %(message)s', )
 # дополняем базовый формат записи лог сообщения данными о пользователе
 logger = logging.getLogger()
@@ -60,7 +61,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('28144187')
+line_search.setText('A1-3330-PW-039-6-A11-WN')
 line_search.setFocus()
 
 # создаём кнопку "Поиск"
@@ -212,7 +213,7 @@ button_add.setFont(font_button_add)
 # дополнительные параметры
 button_add.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Добавить" до авторизации
-button_add.setDisabled(False)
+button_add.setDisabled(True)
 
 # создаём кнопку "Редактировать"
 button_repair = QPushButton('Редактировать', window)
@@ -259,6 +260,20 @@ button_delete.setFont(font_button_delete)
 button_delete.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Удалить" до авторизации
 button_delete.setDisabled(True)
+
+# создаём кнопку "Сформировать отчёт"
+button_create_report = QPushButton('Сформировать отчёт', window)
+# устанавливаем положение и размер кнопки "Сформировать отчёт" в родительском окне (window)
+button_create_report.setGeometry(QRect(210, 810, 250, 41))
+# присваиваем уникальное объектное имя кнопке "Сформировать отчёт"
+button_create_report.setObjectName(u"pushButton_create_report")
+# задаём параметры стиля и оформления кнопки "Удалить"
+font_button_create_report = QFont()
+font_button_create_report.setFamily(u"Arial")
+font_button_create_report.setPointSize(14)
+button_create_report.setFont(font_button_create_report)
+# дополнительные параметры
+button_create_report.setFocusPolicy(Qt.ClickFocus)
 
 # вставляем картинку YKR
 label_ykr = QLabel(window)
@@ -325,6 +340,7 @@ def log_in():
         button_repair.setDisabled(False)
         button_delete.setDisabled(False)
         button_log_out.setDisabled(False)
+        button_add.setDisabled(False)
         # очищаем поле ввода логина и пароля
         line_login.clear()
         line_password.clear()
@@ -400,14 +416,19 @@ def search():
                     # если 'Line' есть в названии столбца
                     if 'Line' in k:
                         # и если искомая линия есть в таблице, то добавляем имя таблицы в список table_for_search_line
-                        if cur.execute('SELECT Line FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall():
+                        # if cur.execute('SELECT Line FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall():
+                        if cur.execute(
+                                'SELECT Line FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall():
                             table_for_search_line.append(i)
                     # если 'Drawing' есть в названии столбца
                     if 'Drawing' in k:
                         # и если искомый чертёж есть в таблице, то добавляем имя таблицы в список
                         # table_for_search_drawing
+                        # if cur.execute(
+                        #         'SELECT Drawing FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall():
                         if cur.execute(
-                                'SELECT Drawing FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall():
+                                'SELECT Drawing FROM {} WHERE Drawing LIKE "%{}%"'.format(i,
+                                                                                          line_for_search)).fetchall():
                             table_for_search_drawing.append(i)
                 cur.close()
 
@@ -482,13 +503,14 @@ def search():
                         for i in table_for_search_line:
                             # количество строк в одной найденной таблице count_row_table_view[0][0]
                             count_row_table = cur.execute(
-                                'SELECT COUNT(*) FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall()
+                                'SELECT COUNT(*) FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_drawing:
                         for i in table_for_search_drawing:
                             # количество строк в одной найденной таблице count_row_table[0][0]
                             count_row_table = cur.execute(
-                                'SELECT COUNT(*) FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall()
+                                'SELECT COUNT(*) FROM {} WHERE Drawing LIKE "%{}%"'.format(i,
+                                                                                           line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_report:
                         for i in table_for_search_report[0]:
@@ -523,8 +545,9 @@ def search():
                     list_table_view = []
                     list_button_for_table = []
                     list_height_table_view = []
-                    # вытягиваем данные из найденных таблиц, формируем таблицу, кнопку названия репорта
+                    # вытягиваем данные из найденных таблиц, формируем таблицу, кнопку названия
                     for i in range(count_table_view):
+
                         # высота одной таблицы tableView = количество строк в одной таблице * высоту одной строки +
                         # + высота строки названия столбцов
                         height = count_row_table_view[i] * one_row + one_row
@@ -626,6 +649,7 @@ def search():
                         button_for_table.setFlat(True)
                         # делаем кнопку переключателем
                         button_for_table.setCheckable(True)
+
                         # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
                         table_view[i] = QTableView(frame_for_table)
                         # устанавливаем координаты расположения таблиц в области с полосой прокрутки
@@ -646,15 +670,22 @@ def search():
                         table_view[i].setModel(sqm)
                         # создаём запрос
                         # выводим данные в форму из найденных таблиц по номеру линии, чертежа или репорта
+
                         if len(table_for_search_line) > 0:
                             sqm.setQuery(
-                                'SELECT * FROM {} WHERE Line="{}"'.format(table_for_search_line[i], line_for_search),
+                                # 'SELECT * FROM {} WHERE Line="{}"'.format(table_for_search_line[i], line_for_search),
+                                # db=QSqlDatabase('reports_db.sqlite'))
+                                'SELECT * FROM {} WHERE Line LIKE "%{}%"'.format(table_for_search_line[i],
+                                                                                 line_for_search),
                                 db=QSqlDatabase('reports_db.sqlite'))
                         # выводим данные в форму из найденных таблиц по номеру чертежа в таблице
                         if len(table_for_search_drawing) > 0:
                             sqm.setQuery(
-                                'SELECT * FROM {} WHERE Drawing="{}"'.format(table_for_search_drawing[i],
-                                                                             line_for_search),
+                                # 'SELECT * FROM {} WHERE Drawing="{}"'.format(table_for_search_drawing[i],
+                                #                                              line_for_search),
+                                # db=QSqlDatabase('reports_db.sqlite'))
+                                'SELECT * FROM {} WHERE Drawing LIKE "%{}%"'.format(table_for_search_drawing[i],
+                                                                                    line_for_search),
                                 db=QSqlDatabase('reports_db.sqlite'))
                         # выводим данные в форму из найденных таблиц по номеру репорта
                         if len(table_for_search_report) > 0:
@@ -711,9 +742,103 @@ def search():
                             # окрашиваем столбец с номинальной толщиной в зелёный цвет
                             table_view[i].setItemDelegateForColumn(number_column_nominal_thickness,
                                                                    color_nominal_thickness)
+
+
+
+                        # находим минимальное значение в выводимых данных
+                        # список минимальных значений толщин в каждом столбце
+                        list_min_thickness_column = []
+                        # если название столбца не...
+                        for ii in name_column:
+                            if ii == 'Line' or ii == 'Item_description' or ii == 'Section' or ii == 'Location' \
+                                    or ii == 'Remark' or ii == 'Size' or ii == 'Nominal_thickness' or ii == 'Diameter' \
+                                    or ii == 'Drawing' or ii == 'P_ID' or ii == 'Date' or ii == 'Distance' \
+                                    or ii == 'Result' or ii == 'S_N':
+                                continue
+                            # то получаем все значения в столбце с измеренными толщинами
+                            else:
+                                # подключаемся в базе данных
+                                conn = sqlite3.connect('reports_db.sqlite')
+                                cur = conn.cursor()
+                                # список только вещественных чисел значений толщин в столбце
+                                list_thickness_column = []
+                                # переменная всех значений толщин в столбце при поиске по номеру линии
+                                if table_for_search_line:
+                                    thickness_column = \
+                                        cur.execute(
+                                            'SELECT {} from {}'.format(ii, table_for_search_line[i])).fetchall()
+                                    # выбираем только вещественные значения
+                                    for iii in thickness_column:
+                                        try:
+                                            if float(iii[0]):
+                                                list_thickness_column.append(float(iii[0]))
+                                        except ValueError:
+                                            continue
+                                    # минимальное значение толщины в столбце
+                                    min_thickness_column = min(list_thickness_column)
+                                    # добавляем это значение в список минимальных значений столбцов
+                                    list_min_thickness_column.append(min_thickness_column)
+                                # переменная всех значений толщин в столбце при поиске по номеру чертежа
+                                if table_for_search_drawing:
+                                    thickness_column = \
+                                        cur.execute(
+                                            'SELECT {} from {}'.format(ii, table_for_search_drawing[i])).fetchall()
+                                    # выбираем только вещественные значения
+                                    for iii in thickness_column:
+                                        try:
+                                            if float(iii[0]):
+                                                list_thickness_column.append(float(iii[0]))
+                                        except ValueError:
+                                            continue
+                                    # минимальное значение толщины в столбце
+                                    min_thickness_column = min(list_thickness_column)
+                                    # добавляем это значение в список минимальных значений столбцов
+                                    list_min_thickness_column.append(min_thickness_column)
+                                # переменная всех значений толщин в столбце при поиске по номеру репорта
+                                if table_for_search_report:
+                                    thickness_column = \
+                                        cur.execute(
+                                            'SELECT {} from {}'.format(ii, table_for_search_report[0][i][0])).fetchall()
+                                    # выбираем только вещественные значения
+                                    for iii in thickness_column:
+                                        try:
+                                            if float(iii[0]):
+                                                list_thickness_column.append(float(iii[0]))
+                                        except ValueError:
+                                            continue
+                                    # минимальное значение толщины в столбце
+                                    min_thickness_column = min(list_thickness_column)
+                                    # добавляем это значение в список минимальных значений столбцов
+                                    list_min_thickness_column.append(min_thickness_column)
+                                # переменная всех значений толщин в столбце при поиске по номеру work order
+                                if table_for_search_wo:
+                                    thickness_column = \
+                                        cur.execute(
+                                            'SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
+                                    # выбираем только вещественные значения
+                                    for iii in thickness_column:
+                                        try:
+                                            if float(iii[0]):
+                                                list_thickness_column.append(float(iii[0]))
+                                        except ValueError:
+                                            continue
+                                    # минимальное значение толщины в столбце
+                                    min_thickness_column = min(list_thickness_column)
+                                    # добавляем это значение в список минимальных значений столбцов
+                                    list_min_thickness_column.append(min_thickness_column)
+                                    # закрываем соединение с базой данных
+                                cur.close()
+                        # после перебора всех допустимых столбцов выбираем минимальное значение
+                        min_thickness = min(list_min_thickness_column)
+
+
+                    second_underlining = second_underlining + r'     min = ' + str(min_thickness)
+                    print(second_underlining)
+
                     scroll_area.show()
                     logger_with_user.info(
                         'Произведён поиск данных по номеру {}. Данные найдены'.format(line_search.text()))
+
                 # сообщение о том, что ничего не найдено
                 else:
                     QMessageBox.information(
@@ -731,6 +856,95 @@ def search():
             'Вы не ввели ни номер линии, ни номер чертежа, ни номер репорта, ни номер word order для поиска данных'
         )
         logger_with_user.info('Попытка поиска данных с пустой строкой поиска')
+
+
+def min_th(i, name_column, table_for_search_line, table_for_search_drawing, table_for_search_report, table_for_search_wo):
+    # находим минимальное значение в выводимых данных
+    # список минимальных значений толщин в каждом столбце
+    list_min_thickness_column = []
+    # если название столбца не...
+    for ii in name_column:
+        if ii == 'Line' or ii == 'Item_description' or ii == 'Section' or ii == 'Location' \
+                or ii == 'Remark' or ii == 'Size' or ii == 'Nominal_thickness' or ii == 'Diameter' \
+                or ii == 'Drawing' or ii == 'P_ID' or ii == 'Date' or ii == 'Distance' \
+                or ii == 'Result' or ii == 'S_N':
+            continue
+        # то получаем все значения в столбце с измеренными толщинами
+        else:
+            # подключаемся в базе данных
+            conn = sqlite3.connect('reports_db.sqlite')
+            cur = conn.cursor()
+            # список только вещественных чисел значений толщин в столбце
+            list_thickness_column = []
+            # переменная всех значений толщин в столбце при поиске по номеру линии
+            if table_for_search_line:
+                thickness_column = \
+                    cur.execute(
+                        'SELECT {} from {}'.format(ii, table_for_search_line[i])).fetchall()
+                # выбираем только вещественные значения
+                for iii in thickness_column:
+                    try:
+                        if float(iii[0]):
+                            list_thickness_column.append(float(iii[0]))
+                    except ValueError:
+                        continue
+                # минимальное значение толщины в столбце
+                min_thickness_column = min(list_thickness_column)
+                # добавляем это значение в список минимальных значений столбцов
+                list_min_thickness_column.append(min_thickness_column)
+            # переменная всех значений толщин в столбце при поиске по номеру чертежа
+            if table_for_search_drawing:
+                thickness_column = \
+                    cur.execute(
+                        'SELECT {} from {}'.format(ii, table_for_search_drawing[i])).fetchall()
+                # выбираем только вещественные значения
+                for iii in thickness_column:
+                    try:
+                        if float(iii[0]):
+                            list_thickness_column.append(float(iii[0]))
+                    except ValueError:
+                        continue
+                # минимальное значение толщины в столбце
+                min_thickness_column = min(list_thickness_column)
+                # добавляем это значение в список минимальных значений столбцов
+                list_min_thickness_column.append(min_thickness_column)
+            # переменная всех значений толщин в столбце при поиске по номеру репорта
+            if table_for_search_report:
+                thickness_column = \
+                    cur.execute(
+                        'SELECT {} from {}'.format(ii, table_for_search_report[0][i][0])).fetchall()
+                # выбираем только вещественные значения
+                for iii in thickness_column:
+                    try:
+                        if float(iii[0]):
+                            list_thickness_column.append(float(iii[0]))
+                    except ValueError:
+                        continue
+                # минимальное значение толщины в столбце
+                min_thickness_column = min(list_thickness_column)
+                # добавляем это значение в список минимальных значений столбцов
+                list_min_thickness_column.append(min_thickness_column)
+            # переменная всех значений толщин в столбце при поиске по номеру work order
+            if table_for_search_wo:
+                thickness_column = \
+                    cur.execute(
+                        'SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
+                # выбираем только вещественные значения
+                for iii in thickness_column:
+                    try:
+                        if float(iii[0]):
+                            list_thickness_column.append(float(iii[0]))
+                    except ValueError:
+                        continue
+                # минимальное значение толщины в столбце
+                min_thickness_column = min(list_thickness_column)
+                # добавляем это значение в список минимальных значений столбцов
+                list_min_thickness_column.append(min_thickness_column)
+                # закрываем соединение с базой данных
+            cur.close()
+    # после перебора всех допустимых столбцов выбираем минимальное значение
+    min_thickness = min(list_min_thickness_column)
+    return min_thickness
 
 
 # функция отображения и повторного скрытия таблиц в frame
@@ -805,11 +1019,17 @@ def delete_report():
     pass
 
 
+# нажатие на кнопку "Сформировать отчёт"
+def create_report():
+    window_create_report.show()
+
+
 def log_out():
     # делаем НЕ активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
     button_repair.setDisabled(True)
     button_delete.setDisabled(True)
     button_log_out.setDisabled(True)
+    button_add.setDisabled(True)
     # разблокируем кнопку "Войти"
     button_log_in.setDisabled(False)
     logger_with_user.info('Пользователь вышел')
@@ -834,6 +1054,9 @@ line_search.returnPressed.connect(search)
 # нажатие на кнопку "Удалить"
 button_delete.clicked.connect(delete_report)
 
+# нажатие на кнопку "Сформировать отчёт"
+button_create_report.clicked.connect(create_report)
+
 # нажатие на кнопку "Выйти"
 button_log_out.clicked.connect(log_out)
 
@@ -843,7 +1066,8 @@ def main():
         window.show()
         sys.exit(app.exec_())
     finally:
-        logger_with_user.info('Программа закрыта')
+        logger_with_user.info('Программа закрыта\n'
+                              '--------------------------------------------------------------------------------')
 
 
 if __name__ == '__main__':
