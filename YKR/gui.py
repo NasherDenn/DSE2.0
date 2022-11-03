@@ -9,6 +9,18 @@ from gui_create_report import *
 import logging
 import os
 
+# переменные списков найденных таблиц для вывода, которые будут изменены через global, для дальнейшего удаления в
+# функции delete_report
+list_table_for_delete_report = 'vhfjhg'
+# list_table_for_delete_report_drawing = ''
+# list_table_for_delete_report_report = ''
+# list_table_for_delete_report_wo = ''
+
+# список флажков для выбора репортов
+list_check_box = []
+# активатор авторизации для отображения флажков
+authorization = 0
+
 # получаем имя машины с которой был осуществлён вход в программу
 uname = os.environ.get('USERNAME')
 # настраиваем систему логирования
@@ -110,6 +122,7 @@ line_login.setFont(font_line_login)
 line_login.setEchoMode(QLineEdit.Normal)
 # устанавливаем исчезающий текст
 line_login.setPlaceholderText('login')
+line_login.setText('admin')
 
 # создаём однострочное поле для ввода пароля
 line_password = QLineEdit(window)
@@ -127,6 +140,7 @@ line_password.setFont(font_line_password)
 line_password.setEchoMode(QLineEdit.Password)
 # устанавливаем исчезающий текст
 line_password.setPlaceholderText('password')
+line_password.setText('admin')
 
 # устанавливаем надпись "Логин"
 label_login = QLabel('Логин', window)
@@ -303,63 +317,6 @@ scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 scroll_area.setGeometry(20, 140, 1481, 650)
 
 
-# нажатие кнопки "Войти"
-def log_in():
-    # если ничего не введено в поля "Логин" и "Пароль"
-    if line_login.text() == '' and line_password.text() == '':
-        QMessageBox.information(
-            window,
-            'Внимание!',
-            'Вы ничего не ввели в поля "Логин" и "Пароль"!!!',
-            buttons=QMessageBox.Ok
-        )
-        logger_with_user.error('Попытка авторизоваться - не заполнены поля "Логин" и "Пароль"')
-    # если ничего не введено в поле "Логин"
-    elif line_login.text() == '':
-        QMessageBox.information(
-            window,
-            'Внимание!',
-            'Вы не заполнили поле "Логин"!!!',
-            buttons=QMessageBox.Ok
-        )
-        logger_with_user.error(
-            'Попытка авторизоваться - не заполнено поле "Логин", указан пароль - "{}"'.format(line_password.text()))
-    # если ничего не введено в поле "Пароль"
-    elif line_password.text() == '':
-        QMessageBox.information(
-            window,
-            'Внимание!',
-            'Вы не заполнили поле "Пароль"!!!',
-            buttons=QMessageBox.Ok
-        )
-        logger_with_user.error(
-            'Попытка авторизоваться - Не заполнено поле "Пароль", указан логин - "{}"'.format(line_login.text()))
-    # если правильно введён логин и пароль
-    elif line_login.text() == 'admin' and line_password.text() == 'admin':
-        # делаем активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
-        button_repair.setDisabled(False)
-        button_delete.setDisabled(False)
-        button_log_out.setDisabled(False)
-        button_add.setDisabled(False)
-        # очищаем поле ввода логина и пароля
-        line_login.clear()
-        line_password.clear()
-        # блокируем кнопку "Войти"
-        button_log_in.setDisabled(True)
-        logger_with_user.error('Пользователь авторизовался')
-    # если неправильно введён логин или пароль
-    else:
-        QMessageBox.information(
-            window,
-            'Внимание!',
-            'Вы ввели не правильный логин или пароль!!!',
-            buttons=QMessageBox.Ok
-        )
-        logger_with_user.error(
-            'Попытка авторизоваться - Введён неверный логин "{}" или пароль "{}"'.format(line_login.text(),
-                                                                                         line_password.text()))
-
-
 # нажатие на кнопку "Добавить"
 def add_tables():
     name_dir = QFileDialog.getExistingDirectory(None, 'Выбрать папку', '.')
@@ -416,7 +373,7 @@ def search():
                     # если 'Line' есть в названии столбца
                     if 'Line' in k:
                         # и если искомая линия есть в таблице, то добавляем имя таблицы в список table_for_search_line
-                        # if cur.execute('SELECT Line FROM {} WHERE Line="{}"'.format(i, line_for_search)).fetchall():
+
                         if cur.execute(
                                 'SELECT Line FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall():
                             table_for_search_line.append(i)
@@ -424,8 +381,6 @@ def search():
                     if 'Drawing' in k:
                         # и если искомый чертёж есть в таблице, то добавляем имя таблицы в список
                         # table_for_search_drawing
-                        # if cur.execute(
-                        #         'SELECT Drawing FROM {} WHERE Drawing="{}"'.format(i, line_for_search)).fetchall():
                         if cur.execute(
                                 'SELECT Drawing FROM {} WHERE Drawing LIKE "%{}%"'.format(i,
                                                                                           line_for_search)).fetchall():
@@ -487,11 +442,35 @@ def search():
                     count_table_view = len(table_for_search_line) + len(table_for_search_drawing) + len(
                         table_for_search_report[0]) + len(table_for_search_wo)
                     # список названий таблицы для переменной при создании tableView
-                    table_view = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-                                  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
-                                  'eighteen',
-                                  'nineteen', 'twenty', 'twenty_one', 'twenty_two', 'twenty_three', 'twenty_four',
-                                  'twenty_five', 'twenty_six', 'twenty_seven', 'twenty_eight', 'twenty_nine', 'thirty']
+                    table_view = ['one_table', 'two_table', 'three_table', 'four_table', 'five_table', 'six_table',
+                                  'seven_table', 'eight_table', 'nine_table', 'ten_table', 'eleven_table',
+                                  'twelve_table', 'thirteen_table', 'fourteen_table', 'fifteen_table', 'sixteen_table',
+                                  'seventeen_table', 'eighteen_table', 'nineteen_table', 'twenty_table',
+                                  'twenty_one_table', 'twenty_two_table', 'twenty_three_table', 'twenty_four_table',
+                                  'twenty_five_table', 'twenty_six_table', 'twenty_seven_table', 'twenty_eight_table',
+                                  'twenty_nine_table', 'thirty_table', 'thirty_one_table', 'thirty_two_table',
+                                  'thirty_three_table', 'thirty_four_table', 'thirty_five_table', 'thirty_six_table',
+                                  'thirty_seven_table', 'thirty_eight_table', 'thirty_nine_table', 'forty_table',
+                                  'forty_one_table', 'forty_two_table', 'forty_three_table', 'forty_four_table',
+                                  'forty_five_table', 'forty_six_table', 'forty_seven_table', 'forty_eight_table',
+                                  'forty_nine_table', 'fifty_table']
+                    # список check box для переменной check_box (флажок выбора выведенного репорта)
+                    check_box = ['one_check_box', 'two_check_box', 'three_check_box', 'four_check_box',
+                                 'five_check_box', 'six_check_box', 'seven_check_box', 'eight_check_box',
+                                 'nine_check_box', 'ten_check_box', 'eleven_check_box', 'twelve_check_box',
+                                 'thirteen_check_box', 'fourteen_check_box', 'fifteen_check_box',
+                                 'sixteen_check_box', 'seventeen_check_box', 'eighteen_check_box', 'nineteen_check_box',
+                                 'twenty_check_box', 'twenty_one_check_box', 'twenty_two_check_box',
+                                 'twenty_three_check_box', 'twenty_four_check_box', 'twenty_five_check_box',
+                                 'twenty_six_check_box', 'twenty_seven_check_box', 'twenty_eight_check_box',
+                                 'twenty_nine_check_box', 'thirty_check_box', 'thirty_one_check_box',
+                                 'thirty_two_check_box', 'thirty_three_check_box', 'thirty_four_check_box',
+                                 'thirty_five_check_box', 'thirty_six_check_box', 'thirty_seven_check_box',
+                                 'thirty_eight_check_box', 'thirty_nine_check_box', 'forty_check_box',
+                                 'forty_one_check_box', 'forty_two_check_box', 'forty_three_check_box',
+                                 'forty_four_check_box', 'forty_five_check_box', 'forty_six_check_box',
+                                 'forty_seven_check_box', 'forty_eight_check_box', 'forty_nine_check_box',
+                                 'fifty_check_box']
                     # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса
                     # прокрутки
                     frame_for_table = QFrame()
@@ -499,13 +478,18 @@ def search():
                     cur = conn.cursor()
                     # список количества строк в каждой найденной таблице
                     count_row_table_view = []
+                    global list_table_for_delete_report
                     if table_for_search_line:
+                        # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
+                        list_table_for_delete_report = table_for_search_line
                         for i in table_for_search_line:
                             # количество строк в одной найденной таблице count_row_table_view[0][0]
                             count_row_table = cur.execute(
                                 'SELECT COUNT(*) FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_drawing:
+                        # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
+                        list_table_for_delete_report = table_for_search_drawing
                         for i in table_for_search_drawing:
                             # количество строк в одной найденной таблице count_row_table[0][0]
                             count_row_table = cur.execute(
@@ -513,10 +497,15 @@ def search():
                                                                                            line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_report:
+                        # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
+                        if table_for_search_report[0]:
+                            list_table_for_delete_report = table_for_search_report[0][0][0]
                         for i in table_for_search_report[0]:
                             count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0])).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_wo:
+                        # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
+                        list_table_for_delete_report = table_for_search_wo[0][0][0]
                         for i in table_for_search_wo:
                             count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0][0])).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
@@ -541,9 +530,12 @@ def search():
                     frame_for_table.show()
                     # начальная координата y1 - первой кнопки с номером репорта первой, y2 - первой таблицы
                     y1 = 0
-                    # список всех таблиц, номеров репортов и высоты каждой таблицы
+                    # список всех таблиц, номеров репортов, номеров флажков и высоты каждой таблицы
                     list_table_view = []
                     list_button_for_table = []
+                    global list_check_box
+                    list_check_box = []
+
                     list_height_table_view = []
                     # вытягиваем данные из найденных таблиц, формируем таблицу, кнопку названия
                     for i in range(count_table_view):
@@ -559,7 +551,6 @@ def search():
                         elif table_for_search_drawing:
                             reader = cur.execute("SELECT * FROM {}".format(table_for_search_drawing[i]))
                         elif table_for_search_report:
-                            print(table_for_search_report)
                             reader = cur.execute("SELECT * FROM {}".format(table_for_search_report[0][i][0]))
                         elif table_for_search_wo:
                             reader = cur.execute("SELECT * FROM {}".format(table_for_search_wo[i][0][0]))
@@ -778,8 +769,11 @@ def search():
 
                         # задаём название кнопки по номеру репорта и помещаем внутрь frame
                         button_for_table = QPushButton(second_underlining, frame_for_table)
+                        # координата отступа от левого края (меняется, когда происходит авторизация пользователя -
+                        # появляется check box)
+                        x1 = 20
                         # задаём размеры и место расположения кнопки во frame
-                        button_for_table.setGeometry(QRect(0, y1, 800, 20))
+                        button_for_table.setGeometry(QRect(x1, y1, 800, 20))
                         # задаём стиль шрифта
                         font_button_for_table = QFont()
                         font_button_for_table.setFamily(u"Calibri")
@@ -792,10 +786,21 @@ def search():
                         # делаем кнопку переключателем
                         button_for_table.setCheckable(True)
 
+                        # задаём флажок для каждой кнопки номера репорта
+                        check_box[i] = QCheckBox(frame_for_table)
+                        # задаём координаты флажка
+                        check_box[i].move(0, y1)
+                        if authorization == 0:
+                            # скрываем флажок
+                            check_box[i].hide()
+                        elif authorization != 0:
+                            check_box[i].show()
+
                         # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
                         table_view[i] = QTableView(frame_for_table)
                         # устанавливаем координаты расположения таблиц в области с полосой прокрутки
                         list_button_for_table.append(button_for_table)
+                        list_check_box.append(check_box[i])
                         list_table_view.append(table_view[i])
                         list_height_table_view.append(height)
                         table_view[i].show()
@@ -812,20 +817,14 @@ def search():
                         table_view[i].setModel(sqm)
                         # создаём запрос
                         # выводим данные в форму из найденных таблиц по номеру линии, чертежа или репорта
-
                         if len(table_for_search_line) > 0:
                             sqm.setQuery(
-                                # 'SELECT * FROM {} WHERE Line="{}"'.format(table_for_search_line[i], line_for_search),
-                                # db=QSqlDatabase('reports_db.sqlite'))
                                 'SELECT * FROM {} WHERE Line LIKE "%{}%"'.format(table_for_search_line[i],
                                                                                  line_for_search),
                                 db=QSqlDatabase('reports_db.sqlite'))
                         # выводим данные в форму из найденных таблиц по номеру чертежа в таблице
                         if len(table_for_search_drawing) > 0:
                             sqm.setQuery(
-                                # 'SELECT * FROM {} WHERE Drawing="{}"'.format(table_for_search_drawing[i],
-                                #                                              line_for_search),
-                                # db=QSqlDatabase('reports_db.sqlite'))
                                 'SELECT * FROM {} WHERE Drawing LIKE "%{}%"'.format(table_for_search_drawing[i],
                                                                                     line_for_search),
                                 db=QSqlDatabase('reports_db.sqlite'))
@@ -842,28 +841,12 @@ def search():
                         table_view[i].hide()
                         # обработка нажатия на кнопку с номером репорта в frame
                         button_for_table.clicked.connect(
-                            lambda: visible_table_view(list_table_view, list_button_for_table,
+                            lambda: visible_table_view(x1, list_table_view, list_button_for_table, list_check_box,
                                                        list_height_table_view))
                         # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
                         table_view[i].setCornerButtonEnabled(True)
                         # горизонтальная полоса прокрутки в пределах отображения одной таблицы
                         table_view[i].setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-
-                        # # подключаемся в базе данных
-                        # conn = sqlite3.connect('reports_db.sqlite')
-                        # cur = conn.cursor()
-                        # # перебираем таблицы и извлекаем данные
-                        # if table_for_search_line:
-                        #     reader = cur.execute("SELECT * FROM {}".format(table_for_search_line[i]))
-                        # elif table_for_search_drawing:
-                        #     reader = cur.execute("SELECT * FROM {}".format(table_for_search_drawing[i]))
-                        # elif table_for_search_report:
-                        #     reader = cur.execute("SELECT * FROM {}".format(table_for_search_report[0][i][0]))
-                        # elif table_for_search_wo:
-                        #     reader = cur.execute("SELECT * FROM {}".format(table_for_search_wo[i][0][0]))
-                        # # получаем список названий столбцов
-                        # name_column = [x[0] for x in reader.description]
-                        # cur.close()
                         # получаем номер столбца с номинальной толщиной
                         if 'Nominal_thickness' in name_column:
                             number_column_nominal_thickness = name_column.index('Nominal_thickness')
@@ -884,98 +867,6 @@ def search():
                             # окрашиваем столбец с номинальной толщиной в зелёный цвет
                             table_view[i].setItemDelegateForColumn(number_column_nominal_thickness,
                                                                    color_nominal_thickness)
-                        #
-                        #
-                        #
-                        # # находим минимальное значение в выводимых данных
-                        # # список минимальных значений толщин в каждом столбце
-                        # list_min_thickness_column = []
-                        # # если название столбца не...
-                        # for ii in name_column:
-                        #     if ii == 'Line' or ii == 'Item_description' or ii == 'Section' or ii == 'Location' \
-                        #             or ii == 'Remark' or ii == 'Size' or ii == 'Nominal_thickness' or ii == 'Diameter' \
-                        #             or ii == 'Drawing' or ii == 'P_ID' or ii == 'Date' or ii == 'Distance' \
-                        #             or ii == 'Result' or ii == 'S_N':
-                        #         continue
-                        #     # то получаем все значения в столбце с измеренными толщинами
-                        #     else:
-                        #         # подключаемся в базе данных
-                        #         conn = sqlite3.connect('reports_db.sqlite')
-                        #         cur = conn.cursor()
-                        #         # список только вещественных чисел значений толщин в столбце
-                        #         list_thickness_column = []
-                        #         # переменная всех значений толщин в столбце при поиске по номеру линии
-                        #         if table_for_search_line:
-                        #             thickness_column = \
-                        #                 cur.execute(
-                        #                     'SELECT {} from {}'.format(ii, table_for_search_line[i])).fetchall()
-                        #             # выбираем только вещественные значения
-                        #             for iii in thickness_column:
-                        #                 try:
-                        #                     if float(iii[0]):
-                        #                         list_thickness_column.append(float(iii[0]))
-                        #                 except ValueError:
-                        #                     continue
-                        #             # минимальное значение толщины в столбце
-                        #             min_thickness_column = min(list_thickness_column)
-                        #             # добавляем это значение в список минимальных значений столбцов
-                        #             list_min_thickness_column.append(min_thickness_column)
-                        #         # переменная всех значений толщин в столбце при поиске по номеру чертежа
-                        #         if table_for_search_drawing:
-                        #             thickness_column = \
-                        #                 cur.execute(
-                        #                     'SELECT {} from {}'.format(ii, table_for_search_drawing[i])).fetchall()
-                        #             # выбираем только вещественные значения
-                        #             for iii in thickness_column:
-                        #                 try:
-                        #                     if float(iii[0]):
-                        #                         list_thickness_column.append(float(iii[0]))
-                        #                 except ValueError:
-                        #                     continue
-                        #             # минимальное значение толщины в столбце
-                        #             min_thickness_column = min(list_thickness_column)
-                        #             # добавляем это значение в список минимальных значений столбцов
-                        #             list_min_thickness_column.append(min_thickness_column)
-                        #         # переменная всех значений толщин в столбце при поиске по номеру репорта
-                        #         if table_for_search_report:
-                        #             thickness_column = \
-                        #                 cur.execute(
-                        #                     'SELECT {} from {}'.format(ii, table_for_search_report[0][i][0])).fetchall()
-                        #             # выбираем только вещественные значения
-                        #             for iii in thickness_column:
-                        #                 try:
-                        #                     if float(iii[0]):
-                        #                         list_thickness_column.append(float(iii[0]))
-                        #                 except ValueError:
-                        #                     continue
-                        #             # минимальное значение толщины в столбце
-                        #             min_thickness_column = min(list_thickness_column)
-                        #             # добавляем это значение в список минимальных значений столбцов
-                        #             list_min_thickness_column.append(min_thickness_column)
-                        #         # переменная всех значений толщин в столбце при поиске по номеру work order
-                        #         if table_for_search_wo:
-                        #             thickness_column = \
-                        #                 cur.execute(
-                        #                     'SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
-                        #             # выбираем только вещественные значения
-                        #             for iii in thickness_column:
-                        #                 try:
-                        #                     if float(iii[0]):
-                        #                         list_thickness_column.append(float(iii[0]))
-                        #                 except ValueError:
-                        #                     continue
-                        #             # минимальное значение толщины в столбце
-                        #             min_thickness_column = min(list_thickness_column)
-                        #             # добавляем это значение в список минимальных значений столбцов
-                        #             list_min_thickness_column.append(min_thickness_column)
-                        #             # закрываем соединение с базой данных
-                        #         cur.close()
-                        # # после перебора всех допустимых столбцов выбираем минимальное значение
-                        # min_thickness = min(list_min_thickness_column)
-
-                    # second_underlining = second_underlining + r'     min = ' + str(min_thickness)
-                    # print(second_underlining)
-
                     scroll_area.show()
                     logger_with_user.info(
                         'Произведён поиск данных по номеру {}. Данные найдены'.format(line_search.text()))
@@ -997,96 +888,8 @@ def search():
             'Вы не ввели ни номер линии, ни номер чертежа, ни номер репорта, ни номер word order для поиска данных'
         )
         logger_with_user.info('Попытка поиска данных с пустой строкой поиска')
-
-
-def min_th(i, name_column, table_for_search_line, table_for_search_drawing, table_for_search_report,
-           table_for_search_wo):
-    # находим минимальное значение в выводимых данных
-    # список минимальных значений толщин в каждом столбце
-    list_min_thickness_column = []
-    # если название столбца не...
-    for ii in name_column:
-        if ii == 'Line' or ii == 'Item_description' or ii == 'Section' or ii == 'Location' \
-                or ii == 'Remark' or ii == 'Size' or ii == 'Nominal_thickness' or ii == 'Diameter' \
-                or ii == 'Drawing' or ii == 'P_ID' or ii == 'Date' or ii == 'Distance' \
-                or ii == 'Result' or ii == 'S_N':
-            continue
-        # то получаем все значения в столбце с измеренными толщинами
-        else:
-            # подключаемся в базе данных
-            conn = sqlite3.connect('reports_db.sqlite')
-            cur = conn.cursor()
-            # список только вещественных чисел значений толщин в столбце
-            list_thickness_column = []
-            # переменная всех значений толщин в столбце при поиске по номеру линии
-            if table_for_search_line:
-                thickness_column = \
-                    cur.execute(
-                        'SELECT {} from {}'.format(ii, table_for_search_line[i])).fetchall()
-                # выбираем только вещественные значения
-                for iii in thickness_column:
-                    try:
-                        if float(iii[0]):
-                            list_thickness_column.append(float(iii[0]))
-                    except ValueError:
-                        continue
-                # минимальное значение толщины в столбце
-                min_thickness_column = min(list_thickness_column)
-                # добавляем это значение в список минимальных значений столбцов
-                list_min_thickness_column.append(min_thickness_column)
-            # переменная всех значений толщин в столбце при поиске по номеру чертежа
-            if table_for_search_drawing:
-                thickness_column = \
-                    cur.execute(
-                        'SELECT {} from {}'.format(ii, table_for_search_drawing[i])).fetchall()
-                # выбираем только вещественные значения
-                for iii in thickness_column:
-                    try:
-                        if float(iii[0]):
-                            list_thickness_column.append(float(iii[0]))
-                    except ValueError:
-                        continue
-                # минимальное значение толщины в столбце
-                min_thickness_column = min(list_thickness_column)
-                # добавляем это значение в список минимальных значений столбцов
-                list_min_thickness_column.append(min_thickness_column)
-            # переменная всех значений толщин в столбце при поиске по номеру репорта
-            if table_for_search_report:
-                thickness_column = \
-                    cur.execute(
-                        'SELECT {} from {}'.format(ii, table_for_search_report[0][i][0])).fetchall()
-                # выбираем только вещественные значения
-                for iii in thickness_column:
-                    try:
-                        if float(iii[0]):
-                            list_thickness_column.append(float(iii[0]))
-                    except ValueError:
-                        continue
-                # минимальное значение толщины в столбце
-                min_thickness_column = min(list_thickness_column)
-                # добавляем это значение в список минимальных значений столбцов
-                list_min_thickness_column.append(min_thickness_column)
-            # переменная всех значений толщин в столбце при поиске по номеру work order
-            if table_for_search_wo:
-                thickness_column = \
-                    cur.execute(
-                        'SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
-                # выбираем только вещественные значения
-                for iii in thickness_column:
-                    try:
-                        if float(iii[0]):
-                            list_thickness_column.append(float(iii[0]))
-                    except ValueError:
-                        continue
-                # минимальное значение толщины в столбце
-                min_thickness_column = min(list_thickness_column)
-                # добавляем это значение в список минимальных значений столбцов
-                list_min_thickness_column.append(min_thickness_column)
-                # закрываем соединение с базой данных
-            cur.close()
-    # после перебора всех допустимых столбцов выбираем минимальное значение
-    min_thickness = min(list_min_thickness_column)
-    return min_thickness
+    # print(list_table_for_delete_report)
+    # return table_for_search_line
 
 
 # функция отображения и повторного скрытия таблиц в frame
@@ -1095,7 +898,7 @@ def min_th(i, name_column, table_for_search_line, table_for_search_drawing, tabl
 # y_1 - координата строки с номером репорта
 # y_2 = y_1 + 20 - координата таблицы (20 - высота строки с номером репорта)
 # l_h_t_v = list_height_table_view = список высот таблиц (строка с названием колонок + все строки таблицы)
-def visible_table_view(l_t_v, l_b_t, l_h_t_v):
+def visible_table_view(x1, l_t_v, l_b_t, l_ch_b, l_h_t_v):
     # y_1 - координата первой строки номера репорта
     y_1 = 0
     # y_2 - координата первой таблицы
@@ -1146,24 +949,143 @@ def visible_table_view(l_t_v, l_b_t, l_h_t_v):
                     y_2 += 20
     # делаем таблицы видимыми или скрываем их в зависимости от статуса
     for b in list_button_for_table_true:
-        l_b_t[b].move(0, position_y1[b])
+        l_b_t[b].move(x1, position_y1[b])
         l_t_v[b].setGeometry((QRect(0, position_y2[b], 1460, l_h_t_v[b])))
         # делаем таблицу из списка видимой
         l_t_v[b].setVisible(True)
+        if l_ch_b[b]:
+            # передвигаем флажок
+            l_ch_b[b].move(0, position_y2[b] - 20)
+
     for bb in list_button_for_table_false:
-        l_b_t[bb].move(0, position_y1[bb])
+        # передвигаем кнопку репорта
+        l_b_t[bb].move(x1, position_y1[bb])
         # делаем таблицу из списка снова скрытой
         l_t_v[bb].hide()
+        if l_ch_b[bb]:
+            # передвигаем флажок
+            l_ch_b[bb].move(0, position_y1[bb])
 
 
 # нажатие на кнопку "Удалить"
 def delete_report():
-    pass
+    # список статусов флажков напротив репортов (установлен или не установлен флажок)
+    check_uncheck_report_for_delete = []
+    # список порядковых номеров репортов для удаления
+    list_index_for_delete = []
+    # порядковый номер репортов для удаления
+    index_report_for_delete = 0
+    for i in list_check_box:
+        check_uncheck_report_for_delete.append(i.checkState())
+    # если статус "2", то номер репорта добавляем в список репортов на удаление
+    for i in check_uncheck_report_for_delete:
+        if i == 2:
+            list_index_for_delete.append(index_report_for_delete)
+        index_report_for_delete += 1
+    # подключаемся в базе данных
+    conn = sqlite3.connect('reports_db.sqlite')
+    cur = conn.cursor()
+    # если одна строка
+    if type(list_table_for_delete_report) == str:
+        # и стоит флажок, то удаляем таблицу, т.к. она одна
+        if list_index_for_delete:
+            # удаляем таблицу из базы данных
+            cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
+        # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
+        if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
+                list_table_for_delete_report[-15:])).fetchone():
+            cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
+            conn.commit()
+        cur.close()
+    # если список
+    if type(list_table_for_delete_report) == list:
+        # и стоит флажок
+        if list_index_for_delete:
+            # то выбираем для удаления таблицу по номеру индекса (list_index_for_delete) в list_table_for_delete_report
+            for i in list_index_for_delete:
+                # удаляем таблицу из базы данных
+                cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[i]))
+            # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
+            if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
+                    list_table_for_delete_report[i][-15:])).fetchone():
+                cur.execute(
+                    'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[i][-15:]))
+                conn.commit()
+        cur.close()
+
+    # - добавить master количеством таблиц в каждом репорте - дополнить master столбцом table_report со списком таблиц,
+    # которые добавлены в базу данных, и столбец one_from с количеством добавленных таблиц из общего количества в
+    # репорте (3/4б 1/2б 0/3)
+    # - при удалении таблицы убирать из области для отображения таблиц удалённую таблицу
 
 
 # нажатие на кнопку "Сформировать отчёт"
 def create_report():
     window_create_report.show()
+
+
+# нажатие кнопки "Войти"
+def log_in():
+    # если ничего не введено в поля "Логин" и "Пароль"
+    if line_login.text() == '' and line_password.text() == '':
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы ничего не ввели в поля "Логин" и "Пароль"!!!',
+            buttons=QMessageBox.Ok
+        )
+        logger_with_user.error('Попытка авторизоваться - не заполнены поля "Логин" и "Пароль"')
+    # если ничего не введено в поле "Логин"
+    elif line_login.text() == '':
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы не заполнили поле "Логин"!!!',
+            buttons=QMessageBox.Ok
+        )
+        logger_with_user.error(
+            'Попытка авторизоваться - не заполнено поле "Логин", указан пароль - "{}"'.format(line_password.text()))
+    # если ничего не введено в поле "Пароль"
+    elif line_password.text() == '':
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы не заполнили поле "Пароль"!!!',
+            buttons=QMessageBox.Ok
+        )
+        logger_with_user.error(
+            'Попытка авторизоваться - Не заполнено поле "Пароль", указан логин - "{}"'.format(line_login.text()))
+    # если правильно введён логин и пароль
+    elif line_login.text() == 'admin' and line_password.text() == 'admin':
+        # делаем активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
+        button_repair.setDisabled(False)
+        button_delete.setDisabled(False)
+        button_log_out.setDisabled(False)
+        button_add.setDisabled(False)
+        # очищаем поле ввода логина и пароля
+        line_login.clear()
+        line_password.clear()
+        # блокируем кнопку "Войти"
+        button_log_in.setDisabled(True)
+        logger_with_user.error('Пользователь авторизовался')
+        # делаем видимые флажки
+        if list_check_box:
+            for i in list_check_box:
+                i.show()
+        # сигнал о том, что выполнена авторизация
+        global authorization
+        authorization += 1
+    # если неправильно введён логин или пароль
+    else:
+        QMessageBox.information(
+            window,
+            'Внимание!',
+            'Вы ввели не правильный логин или пароль!!!',
+            buttons=QMessageBox.Ok
+        )
+        logger_with_user.error(
+            'Попытка авторизоваться - Введён неверный логин "{}" или пароль "{}"'.format(line_login.text(),
+                                                                                         line_password.text()))
 
 
 def log_out():
@@ -1175,6 +1097,13 @@ def log_out():
     # разблокируем кнопку "Войти"
     button_log_in.setDisabled(False)
     logger_with_user.info('Пользователь вышел')
+    # сбрасываем на ноль авторизацию для отображения флажков
+    global authorization
+    authorization = 0
+    # скрываем флажки
+    if list_check_box:
+        for i in list_check_box:
+            i.hide()
 
 
 # нажатие кнопки "Войти"
