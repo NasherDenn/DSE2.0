@@ -964,6 +964,10 @@ def add_table():
             # создаём подключение к базе данных
             conn = sqlite3.connect(DB_NAME)
             cur = conn.cursor()
+            # переменная количества добавленных репортов
+            check_amount_reports = 0
+            # список добавленных таблиц для master
+            list_add_table = []
             # добавляем данные из репорта в базу данных
             for i in list(clear_table_bottom.keys()):
                 # собираем название таблицы
@@ -972,11 +976,19 @@ def add_table():
                 if not cur.execute('SELECT * FROM sqlite_master WHERE  name="{}"'.format(
                         name_clear_table[1:-1])).fetchone():
                     try:
+                        # увеличиваем количество добавленных таблиц
+                        check_amount_reports += 1
+                        # добавляем название таблицы в список для master
+                        list_add_table.append(name_clear_table)
                         # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
                         cur.execute(
                             'CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
                         conn.commit()
                     except (sqlite3.OperationalError, KeyError):
+                        # уменьшаем количество добавленных таблиц, если что-то пошло не так
+                        check_amount_reports -= 1
+                        # удаляем название таблицы из списка для master
+                        list_add_table.remove(name_clear_table)
                         mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
                         message_column.append(mess)
                         dont_save_tables.append(name_clear_table)
@@ -1000,14 +1012,16 @@ def add_table():
                         except sqlite3.OperationalError:
                             continue
                     conn.commit()
-
-                # количество полностью обработанных таблиц
-                full_processed_tables = len(cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall())
-                # список обработанных таблиц
-                list_full_processed_tables = cur.execute('SELECT name FROM sqlite_master WHERE type="table"').fetchall()
-
+            # преобразуем list_add_table из списка в строку для записи в столбец (list_table_report) в master
+            str_add_table = ''
+            if len(list_add_table) == 1:
+                str_add_table = list_add_table[0]
+            else:
+                for j in list_add_table:
+                    str_add_table = str_add_table + j + '\n'
             # создаём таблицу master со столбцами из rep_number
-            cur.execute('CREATE TABLE IF NOT EXISTS master (report_number, report_date, work_order)')
+            cur.execute(
+                'CREATE TABLE IF NOT EXISTS master (report_number, report_date, work_order, one_of, list_table_report)')
             # активатор наличия репорта в таблице master
             check_report_number = 0
             # перебираем номера репортов, которые есть в таблице master
@@ -1024,46 +1038,68 @@ def add_table():
                     if rep_number['report_number'][-6:] == i[0][-6:]:
                         # и вносим данные из rep_number в таблицу master
                         cur.execute(
-                            'INSERT INTO master VALUES (?, ?, ?)', (rep_number['report_number'],
-                                                                    rep_number['report_date'],
-                                                                    rep_number['work_order']))
+                            'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
+                                                                          rep_number['report_date'],
+                                                                          rep_number['work_order'],
+                                                                          str(check_amount_reports) + '/' + str(
+                                                                              len(clear_table_bottom.keys())),
+                                                                          str_add_table))
                         conn.commit()
                         # прерываем дальнейший перебор
                         break
-
             # закрываем соединение с базой данной
             conn.close()
+            # сбор данных (количество добавленных таблиц из репорта (one_of - 4/), всего таблиц в репорте - one_of - /2)
+            # для добавления в master, и список добавленных репортов (list_table_report)
+            # amount_reports(check_amount_reports, len(clear_table_bottom.keys()), list_add_table)
 
-    # сводка итоговых данных
-    # print('------------------------------------------------------------------------------------------------')
-    # print('Количество обработанных репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
-    # print('Количество таблиц в БД: ' + str(full_processed_tables))
-    # print('Список таблиц в БД: ')
-    # for i in list_full_processed_tables:
-    #     print(i)
-    # print('------------------------------------------------------------------------------------------------')
-    # print('Ошибки в репорте: ' + str(len(set(list_cells))))
-    # for i in range(len(message_mistake)):
-    #     print('\t' + message_mistake[i])
-    # print('------------------------------------------------------------------------------------------------')
-    # print('Пустых таблиц: ' + str(len(set(list_zero_table))))
-    # print('В репорте:')
-    # for i in range(zero_table):
-    #     print('\t' + list_zero_table[i])
-    # print('------------------------------------------------------------------------------------------------')
-    # print('Репортов с нарушением структуры таблицы: ' + str(len(set(list_distract_structure))))
-    # print('В репорте:')
-    # for i in range(distract_structure):
-    #     print('\t' + list_distract_structure[i])
-    # print('------------------------------------------------------------------------------------------------')
-    # print('Количество репортов с ошибками в названиях столбцов: ' + str(len(set(dont_save_tables))))
-    # for i in range(len(set(dont_save_tables))):
-    #     print('\t' + dont_save_tables[i])
-    # print('------------------------------------------------------------------------------------------------')
+
+# ch_am_rep = check_amount_reports = количество добавленных репортов (one_of - 4/)
+# len_clear_table_bottom_keys = len(clear_table_bottom.keys() = количество всех таблиц, которые должны быть записаны в
+# базу данных (one_of - /2)
+# l_t_r = list_add_table = список добавленных таблиц в репорте
+# функция добавления данных в master новых столбцов list_table_report и one_of с данными
+# def amount_reports(ch_am_rep, len_clear_table_bottom_keys, l_t_r):
+#     # создаём подключение к базе данных
+#     conn = sqlite3.connect(DB_NAME)
+#     cur = conn.cursor()
+#     # b = cur.execute('SELECT name FROM sqlite_master').fetchall()
+#     print(ch_am_rep)
+#     print(len_clear_table_bottom_keys)
+#     print(l_t_r)
+
+
+# сводка итоговых данных
+# print('------------------------------------------------------------------------------------------------')
+# print('Количество обработанных репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
+# print('Количество таблиц в БД: ' + str(full_processed_tables))
+# print('Список таблиц в БД: ')
+# for i in list_full_processed_tables:
+#     print(i)
+# print('------------------------------------------------------------------------------------------------')
+# print('Ошибки в репорте: ' + str(len(set(list_cells))))
+# for i in range(len(message_mistake)):
+#     print('\t' + message_mistake[i])
+# print('------------------------------------------------------------------------------------------------')
+# print('Пустых таблиц: ' + str(len(set(list_zero_table))))
+# print('В репорте:')
+# for i in range(zero_table):
+#     print('\t' + list_zero_table[i])
+# print('------------------------------------------------------------------------------------------------')
+# print('Репортов с нарушением структуры таблицы: ' + str(len(set(list_distract_structure))))
+# print('В репорте:')
+# for i in range(distract_structure):
+#     print('\t' + list_distract_structure[i])
+# print('------------------------------------------------------------------------------------------------')
+# print('Количество репортов с ошибками в названиях столбцов: ' + str(len(set(dont_save_tables))))
+# for i in range(len(set(dont_save_tables))):
+#     print('\t' + dont_save_tables[i])
+# print('------------------------------------------------------------------------------------------------')
 
 
 def main():
     add_table()
+    # amount_reports()
 
 
 if __name__ == '__main__':
