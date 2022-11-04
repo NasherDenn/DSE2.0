@@ -11,10 +11,7 @@ import os
 
 # переменные списков найденных таблиц для вывода, которые будут изменены через global, для дальнейшего удаления в
 # функции delete_report
-list_table_for_delete_report = 'vhfjhg'
-# list_table_for_delete_report_drawing = ''
-# list_table_for_delete_report_report = ''
-# list_table_for_delete_report_wo = ''
+list_table_for_delete_report = ''
 
 # список флажков для выбора репортов
 list_check_box = []
@@ -281,13 +278,29 @@ button_create_report = QPushButton('Сформировать отчёт', window
 button_create_report.setGeometry(QRect(210, 810, 250, 41))
 # присваиваем уникальное объектное имя кнопке "Сформировать отчёт"
 button_create_report.setObjectName(u"pushButton_create_report")
-# задаём параметры стиля и оформления кнопки "Удалить"
+# задаём параметры стиля и оформления кнопки "Сформировать отчёт"
 font_button_create_report = QFont()
 font_button_create_report.setFamily(u"Arial")
 font_button_create_report.setPointSize(14)
 button_create_report.setFont(font_button_create_report)
 # дополнительные параметры
 button_create_report.setFocusPolicy(Qt.ClickFocus)
+
+# создаём кнопку "Сводные данные"
+button_statistic_master = QPushButton('Сводные данные', window)
+# устанавливаем положение и размер кнопки "Сводные данные" в родительском окне (window)
+button_statistic_master.setGeometry(QRect(479, 810, 201, 41))
+# присваиваем уникальное объектное имя кнопке "Сводные данные"
+button_statistic_master.setObjectName(u"pushButton_statistic_master")
+# задаём параметры стиля и оформления кнопки "Сводные данные"
+font_button_statistic_master = QFont()
+font_button_statistic_master.setFamily(u"Arial")
+font_button_statistic_master.setPointSize(14)
+button_statistic_master.setFont(font_button_statistic_master)
+# дополнительные параметры
+button_statistic_master.setFocusPolicy(Qt.ClickFocus)
+# делаем неактивной кнопку "Сводные данные" до авторизации
+button_statistic_master.setDisabled(True)
 
 # вставляем картинку YKR
 label_ykr = QLabel(window)
@@ -373,7 +386,6 @@ def search():
                     # если 'Line' есть в названии столбца
                     if 'Line' in k:
                         # и если искомая линия есть в таблице, то добавляем имя таблицы в список table_for_search_line
-
                         if cur.execute(
                                 'SELECT Line FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall():
                             table_for_search_line.append(i)
@@ -535,7 +547,6 @@ def search():
                     list_button_for_table = []
                     global list_check_box
                     list_check_box = []
-
                     list_height_table_view = []
                     # вытягиваем данные из найденных таблиц, формируем таблицу, кнопку названия
                     for i in range(count_table_view):
@@ -880,6 +891,7 @@ def search():
                     )
                     logger_with_user.info(
                         'Произведён поиск данных по номеру {}. Данные НЕ найдены'.format(line_search.text()))
+        # con.close()
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -888,8 +900,6 @@ def search():
             'Вы не ввели ни номер линии, ни номер чертежа, ни номер репорта, ни номер word order для поиска данных'
         )
         logger_with_user.info('Попытка поиска данных с пустой строкой поиска')
-    # print(list_table_for_delete_report)
-    # return table_for_search_line
 
 
 # функция отображения и повторного скрытия таблиц в frame
@@ -996,6 +1006,7 @@ def delete_report():
                 list_table_for_delete_report[-15:])).fetchone():
             cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
             conn.commit()
+        logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report)
         cur.close()
     # если список
     if type(list_table_for_delete_report) == list:
@@ -1011,10 +1022,11 @@ def delete_report():
                 cur.execute(
                     'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[i][-15:]))
                 conn.commit()
+            logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[i])
         cur.close()
 
-    # - добавить master количеством таблиц в каждом репорте - дополнить master столбцом table_report со списком таблиц,
-    # которые добавлены в базу данных, и столбец one_from с количеством добавленных таблиц из общего количества в
+    # - добавить master количеством таблиц в каждом репорте - дополнить master столбцом list_table_report со списком таблиц,
+    # которые добавлены в базу данных, и столбец one_of с количеством добавленных таблиц из общего количества в
     # репорте (3/4б 1/2б 0/3)
     # - при удалении таблицы убирать из области для отображения таблиц удалённую таблицу
 
@@ -1023,6 +1035,61 @@ def delete_report():
 def create_report():
     window_create_report.show()
 
+
+def statistic_master():
+    # проверяем наличие областей tableView для вывода данных
+    # если есть, то закрываем их, чтобы не наслаивались
+    if window.findChildren(QTableView):
+        open_tableview = window.findChildren(QTableView)
+        for i in open_tableview:
+            i.hide()
+    # создаём соединение с базой данной
+    con = QSqlDatabase.addDatabase('QSQLITE')
+    # передаём имя базы данных для открытия
+    con.setDatabaseName(r'C:\Users\asus\PycharmProjects\YKR\YKR\reports_db.sqlite')
+    con.open()
+    # если соединение не установлено, то сообщение об ошибке и выход
+    if not con.open():
+        logger_with_user.error('Отсутствует соединение с базой данных')
+        sys.exit()
+    else:
+        # подключаемся в базе данных
+        conn = sqlite3.connect('reports_db.sqlite')
+        cur = conn.cursor()
+        w = 10000
+        frame_for_statistic = QFrame()
+        # помещаем frame в область с полосой прокрутки
+        scroll_area.setWidget(frame_for_statistic)
+        # задаём размер frame
+        frame_for_statistic.setGeometry(0, 0, 1460, w)
+        frame_for_statistic.show()
+        # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
+        statistic = QTableView(frame_for_statistic)
+        # задаём размер области для отображения данных
+        statistic.setGeometry(0, 0, 1460, w)
+        # создаём модель
+        sqm = QSqlQueryModel(parent=window)
+        # устанавливаем ширину столбцов под содержимое
+        statistic.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        # устанавливаем высоту столбцов под содержимое
+        statistic.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        # устанавливаем разный цвет фона для чётных и нечётных строк
+        statistic.setAlternatingRowColors(True)
+        statistic.setModel(sqm)
+        # создаём запрос
+        sqm.setQuery('SELECT * FROM master', db=QSqlDatabase('reports_db.sqlite'))
+        # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
+        statistic.setCornerButtonEnabled(True)
+        # горизонтальная полоса прокрутки в пределах отображения одной таблицы
+        statistic.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        frame_for_statistic.setVisible(True)
+        statistic.setVisible(True)
+        statistic.show()
+        scroll_area.show()
+        cur.close()
+        logger_with_user.info('Просмотр сводных данных из таблицы master')
+    # закрываем соединение с базой данных
+    con.close()
 
 # нажатие кнопки "Войти"
 def log_in():
@@ -1057,17 +1124,18 @@ def log_in():
             'Попытка авторизоваться - Не заполнено поле "Пароль", указан логин - "{}"'.format(line_login.text()))
     # если правильно введён логин и пароль
     elif line_login.text() == 'admin' and line_password.text() == 'admin':
-        # делаем активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
+        # делаем активными кнопки "Добавить", "Редактировать", "Удалить", "Выйти", "Сводные данные"
         button_repair.setDisabled(False)
         button_delete.setDisabled(False)
         button_log_out.setDisabled(False)
         button_add.setDisabled(False)
+        button_statistic_master.setDisabled(False)
         # очищаем поле ввода логина и пароля
         line_login.clear()
         line_password.clear()
         # блокируем кнопку "Войти"
         button_log_in.setDisabled(True)
-        logger_with_user.error('Пользователь авторизовался')
+        logger_with_user.info('Пользователь авторизовался')
         # делаем видимые флажки
         if list_check_box:
             for i in list_check_box:
@@ -1089,11 +1157,12 @@ def log_in():
 
 
 def log_out():
-    # делаем НЕ активными кнопки "Добавить", "Редактировать", "Готово", "Удалить", "Выйти"
+    # делаем НЕ активными кнопки "Добавить", "Редактировать", "Удалить", "Выйти", "Сводные данные", "Выйти"
     button_repair.setDisabled(True)
     button_delete.setDisabled(True)
     button_log_out.setDisabled(True)
     button_add.setDisabled(True)
+    button_statistic_master.setDisabled(True)
     # разблокируем кнопку "Войти"
     button_log_in.setDisabled(False)
     logger_with_user.info('Пользователь вышел')
@@ -1127,6 +1196,9 @@ button_delete.clicked.connect(delete_report)
 
 # нажатие на кнопку "Сформировать отчёт"
 button_create_report.clicked.connect(create_report)
+
+# нажатие на кнопку "Сводные данные"
+button_statistic_master.clicked.connect(statistic_master)
 
 # нажатие на кнопку "Выйти"
 button_log_out.clicked.connect(log_out)
