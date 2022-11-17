@@ -1,45 +1,56 @@
 # -*- coding: utf-8 -*-
 
 from docx import Document
+import openpyxl
+from openpyxl.styles import Font, Alignment
+import datetime
 import re
 import glob
 import sqlite3
 from YKR.props import DB_NAME
+import os
+import logging
 
+
+
+# получаем имя машины с которой был осуществлён вход в программу
+uname = os.environ.get('USERNAME')
+# инициализируем logger
+logger = logging.getLogger()
+logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
 
 # функция для извлечения данных из репортов и записи в базу данных при нажатии на кнопку "Добавить"
-def add_table():
+def add_table(name_dir):
     # задаём папку для поиска репортов с расширением docx для Word 2013 и старше
     # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\**\*.docx'
-    target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2022\1\*.docx'
+    # target_dir_docx = r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2022\1\*.docx'
     # target_dir_docx = name_dir + r'\*.docx'
     # присваиваем переменной список найденных файлов с расширением docx
-    list_find_docx = glob.glob(target_dir_docx)
+    # list_find_docx = glob.glob(target_dir_docx)
 
-    # переменные для сводки итоговых данных
-    # количество репортов
-    total_reports = len(list_find_docx)
-    # количество таблиц
-    total_tables = 0
-    # количество полностью обработанных таблиц
-    full_processed_tables = 0
-    # счётчик репортов с пустыми таблицами
-    zero_table = 0
-    # список репортов с пустыми таблицами
-    list_zero_table = []
+    # переменная список для дальнейшего преобразования списка списков в список строк выбранных для загрузки файлов docx
+    name_dir_docx = []
+    for i in name_dir[:-1]:
+        name_dir_docx.append(i)
+    # присваиваем переменной список найденных файлов с расширением docx
+    list_find_docx = name_dir_docx[0]
+
     # счётчик репортов с нарушением структуры
     distract_structure = 0
     # список репортов с нарушением структуры
     list_distract_structure = []
-    # список ошибок в названиях столбцов таблиц
-    message_column = []
     # список таблиц, которые не должны быть записаны
     dont_save_tables = []
-    # список репортов с нарушением диапазона ячеек
-    list_cells = []
-    # сообщения о возникших проблемах и ошибках
-    message_mistake = []
-
+    # список количества всего таблиц в файле
+    all_table = []
+    # список загруженного количества таблиц в репорте
+    load_table = []
+    # список загружаемых репортов
+    list_load_report = []
+    # список загруженных таблиц в репорте для отчёта по загрузке
+    li_rep = []
+    # список НЕ записанных таблиц в репорте
+    li_dont_rep = []
     # проверяем найденные репорты
     for unit_list_find_docx in list_find_docx:
         # работаем только если файл имеет допустимое имя, начинающееся с "04-YKR..."
@@ -82,7 +93,8 @@ def add_table():
 
             # меняем '-' на '_' в названиях репортов в rep_number['report_number']
             rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
-
+            # добавляем в список номера репортов для статистики
+            list_load_report.append(rep_number['report_number'])
             # извлекаем необходимые данные из репорта
             # переменная со всеми таблицами в репорте
             all_tables = doc.tables
@@ -97,9 +109,6 @@ def add_table():
                         for cell in row.cells:
                             data_tables[i][j].append(cell.text)
                     except IndexError:
-                        mess = 'Ошибка в диапазоне ячеек репорта ' + rep_number['report_number']
-                        message_mistake.append(mess)
-                        list_cells.append(rep_number['report_number'])
                         dont_save_tables.append(rep_number['report_number'])
                         break
 
@@ -196,16 +205,6 @@ def add_table():
             if del_start_table > 0:
                 del clear_table_bottom[0]
 
-            # считаем количество таблиц
-            total_tables += len(clear_table_bottom.keys())
-
-            # список пустых таблиц для сводки итоговых данных
-            if clear_table_bottom == {}:
-                # проверка, вносился ли уже репорт с таким номером в список
-                if rep_number['report_number'] not in list_zero_table:
-                    list_zero_table.append(rep_number['report_number'])
-                    zero_table += 1
-
             # список репортов с нарушением структуры для итоговых данных
             for i in list(clear_table_bottom.keys()):
                 try:
@@ -216,8 +215,6 @@ def add_table():
                                 list_distract_structure.append(rep_number['report_number'])
                                 distract_structure += 1
                 except KeyError:
-                    mess = 'Ошибка ссылке на несуществующий ключ в словаре таблиц ' + rep_number['report_number']
-                    message_mistake.append(mess)
                     dont_save_tables.append(rep_number['report_number'])
                     break
 
@@ -537,7 +534,6 @@ def add_table():
             for i in list_index_remove:
                 clear_table_bottom[i].remove(list_for_remove[e])
                 e += 1
-
             # перебираем название столбцов
             for i in name_column.keys():
                 # если всего два уникальных названия
@@ -582,7 +578,6 @@ def add_table():
                             # добавляем в уникальный список значений строк номер чертежа
                             unique_value_table.insert(1, temp_drawing)
                             list_index_remove.insert(1, i)
-
                         # иначе добавляем в уникальный список значений строк номер линии
                         else:
                             unique_name_column.insert(0, name_column[i][-1])
@@ -895,7 +890,6 @@ def add_table():
             sh_line = 0
             # проверяем каждую таблицу на наличие столбца Line, если его нет, то ищем колонку в головной
             # таблице и добавляем её в rep_number
-
             for i in list(name_column.keys()):
                 if 'Line' not in name_column[i]:
                     # ищем в головной таблице 'Line'
@@ -947,11 +941,17 @@ def add_table():
                                         # найденный номер линии в головной таблице
                                         line_for_head = iiii
                     name_column[i].insert(0, 'Line')
-            if sh_line != 0:
-                for i in list(clear_table_bottom.keys()):
-                    for ii in range(len(clear_table_bottom[i])):
+
+            # не работает
+            # if sh_line != 0:
+            #     for i in list(clear_table_bottom.keys()):
+            #         for ii in range(len(clear_table_bottom[i])):
+            #             print(clear_table_bottom)
+            #             print(clear_table_bottom[i])
+            #             print(line_for_head)
+
                         # добавляем номер линии в столбец
-                        clear_table_bottom[i][ii].insert(0, line_for_head)
+                        # clear_table_bottom[i][ii].insert(0, line_for_head)
 
             # меняем все "," на ".", убираем все (") в clear_table_bottom, для поиска минимального значения в выводимой
             # таблице
@@ -968,6 +968,7 @@ def add_table():
             check_amount_reports = 0
             # список добавленных таблиц для master
             list_add_table = []
+            all_table.append(len(clear_table_bottom.keys()))
             # добавляем данные из репорта в базу данных
             for i in list(clear_table_bottom.keys()):
                 # собираем название таблицы
@@ -989,19 +990,16 @@ def add_table():
                         check_amount_reports -= 1
                         # удаляем название таблицы из списка для master
                         list_add_table.remove(name_clear_table)
-                        mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
-                        message_column.append(mess)
                         dont_save_tables.append(name_clear_table)
                         # сохраняем внесённые изменения, если не было ошибок в репорте
                         conn.commit()
+
                     for ii in clear_table_bottom[i]:
                         try:
                             cur.execute('INSERT INTO ' + name_clear_table + ' VALUES (%s)' % ','.join('?' * len(ii)),
                                         ii)
                             conn.commit()
                         except sqlite3.OperationalError:
-                            mess = 'Ошибка в названии столбца (символ или дубль) ' + rep_number['report_number']
-                            message_column.append(mess)
                             dont_save_tables.append(name_clear_table)
                             # сохраняем внесённые изменения, если не было ошибок в репорте
                             conn.commit()
@@ -1030,6 +1028,17 @@ def add_table():
                 if rep_number['report_number'][-6:] == j[0][-6:]:
                     # то меняем статус активатора
                     check_report_number += 1
+            # если репорт записан, то добавляем его в список для подсчёта количества загруженных таблиц для репорта
+            if check_amount_reports:
+                load_table.append(check_amount_reports)
+            # иначе записываем "0"
+            else:
+                load_table.append('0')
+            # список для отчёта по загрузке по загруженным таблицам
+            if list_add_table:
+                li_rep.append(list_add_table)
+            else:
+                li_rep.append(0)
             # если статус активатора не изменён (такой репорт еще не занесён в базу данных)
             if check_report_number == 0:
                 # то перебираем номера репортов
@@ -1049,57 +1058,112 @@ def add_table():
                         break
             # закрываем соединение с базой данной
             conn.close()
-            # сбор данных (количество добавленных таблиц из репорта (one_of - 4/), всего таблиц в репорте - one_of - /2)
-            # для добавления в master, и список добавленных репортов (list_table_report)
-            # amount_reports(check_amount_reports, len(clear_table_bottom.keys()), list_add_table)
+    loading_report(len(list_find_docx), list_load_report, load_table, all_table, li_rep)
 
 
-# ch_am_rep = check_amount_reports = количество добавленных репортов (one_of - 4/)
-# len_clear_table_bottom_keys = len(clear_table_bottom.keys() = количество всех таблиц, которые должны быть записаны в
-# базу данных (one_of - /2)
-# l_t_r = list_add_table = список добавленных таблиц в репорте
-# функция добавления данных в master новых столбцов list_table_report и one_of с данными
-# def amount_reports(ch_am_rep, len_clear_table_bottom_keys, l_t_r):
-#     # создаём подключение к базе данных
-#     conn = sqlite3.connect(DB_NAME)
-#     cur = conn.cursor()
-#     # b = cur.execute('SELECT name FROM sqlite_master').fetchall()
-#     print(ch_am_rep)
-#     print(len_clear_table_bottom_keys)
-#     print(l_t_r)
+# написать load_table
 
 
-# сводка итоговых данных
-# print('------------------------------------------------------------------------------------------------')
-# print('Количество обработанных репортов/таблиц: ' + str(total_reports) + '/' + str(total_tables))
-# print('Количество таблиц в БД: ' + str(full_processed_tables))
-# print('Список таблиц в БД: ')
-# for i in list_full_processed_tables:
-#     print(i)
-# print('------------------------------------------------------------------------------------------------')
-# print('Ошибки в репорте: ' + str(len(set(list_cells))))
-# for i in range(len(message_mistake)):
-#     print('\t' + message_mistake[i])
-# print('------------------------------------------------------------------------------------------------')
-# print('Пустых таблиц: ' + str(len(set(list_zero_table))))
-# print('В репорте:')
-# for i in range(zero_table):
-#     print('\t' + list_zero_table[i])
-# print('------------------------------------------------------------------------------------------------')
-# print('Репортов с нарушением структуры таблицы: ' + str(len(set(list_distract_structure))))
-# print('В репорте:')
-# for i in range(distract_structure):
-#     print('\t' + list_distract_structure[i])
-# print('------------------------------------------------------------------------------------------------')
-# print('Количество репортов с ошибками в названиях столбцов: ' + str(len(set(dont_save_tables))))
-# for i in range(len(set(dont_save_tables))):
-#     print('\t' + dont_save_tables[i])
-# print('------------------------------------------------------------------------------------------------')
+# len_list_find_docx = len(list_find_docx) = количество загружаемых файлов xlsx
+# l_l_r = list_load_report = список загружаемых файлов
+# l_t = load_table = список загруженного количества таблиц в репорте
+# a_t = all_table = список количество таблиц в файле (репорте)
+# l_r = li_rep = список записанных таблиц в репорте
+# функция формирования отчёта по загрузке репортов в формате Excel
+
+def loading_report(len_list_find_docx, l_l_r, l_t, a_t, l_r):
+    wb = openpyxl.Workbook()
+    # делаем активным первый лист
+    sheet_loading_report = wb.active
+    # закрепляем первую строку
+    sheet_loading_report.freeze_panes = 'A2'
+
+    # настраиваем заголовки листа с отчётом
+    # высота всей первой строки
+    sheet_loading_report.row_dimensions[1].height = 43
+    # ширина столбца "A"
+    sheet_loading_report.column_dimensions['A'].width = 13
+    # стиль текста, размер и жирное выделение
+    style_sheet = Font(name='Calibri', size=11, bold=True)
+    sheet_loading_report['A1'].font = style_sheet
+    # центрируем положение текста в столбце "A" и делаем автоматический перенос слов
+    sheet_loading_report['A1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    # текст в ячейке
+    sheet_loading_report['A1'] = 'Количество загружаемых репортов'
+    # ширина столбца "B"
+    sheet_loading_report.column_dimensions['B'].width = 30
+    # стиль текста, размер и жирное выделение
+    style_sheet = Font(name='Calibri', size=11, bold=True)
+    sheet_loading_report['B1'].font = style_sheet
+    # центрируем положение текста в столбце "B"
+    sheet_loading_report['B1'].alignment = Alignment(horizontal='center', vertical='center')
+    # текст в ячейке
+    sheet_loading_report['B1'] = 'Список загружаемых репортов'
+    # ширина столбца "C"
+    sheet_loading_report.column_dimensions['C'].width = 15
+    # стиль текста, размер и жирное выделение
+    style_sheet = Font(name='Calibri', size=11, bold=True)
+    sheet_loading_report['C1'].font = style_sheet
+    # центрируем положение текста в столбце "C" и делаем автоматический перенос слов
+    sheet_loading_report['C1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    # текст в ячейке
+    sheet_loading_report['C1'] = 'Загружено таблиц  / таблиц в файле'
+    # ширина столбца "D"
+    sheet_loading_report.column_dimensions['D'].width = 30
+    # стиль текста, размер и жирное выделение
+    style_sheet = Font(name='Calibri', size=11, bold=True)
+    sheet_loading_report['D1'].font = style_sheet
+    # центрируем положение текста в столбце "D"
+    sheet_loading_report['D1'].alignment = Alignment(horizontal='center', vertical='center')
+    # текст в ячейке
+    sheet_loading_report['D1'] = 'Список загруженных таблиц'
+
+    # указываем количество загружаемых репортов
+    sheet_loading_report['A2'].alignment = Alignment(horizontal='center', vertical='center')
+    sheet_loading_report['A2'] = str(len_list_find_docx)
+    for i in range(len(l_l_r)):
+        # записываем загружаемые репорты в столбец и центрируем их в ячейке
+        sheet_loading_report['B' + str(i + 2)].alignment = Alignment(horizontal='center', vertical='center')
+        sheet_loading_report['B' + str(i + 2)] = str(l_l_r[i])
+        # записываем всего "загружено таблиц / таблиц в файле"
+        sheet_loading_report['C' + str(i + 2)].alignment = Alignment(horizontal='center', vertical='center')
+        sheet_loading_report['C' + str(i + 2)] = str(l_t[i]) + '/' + str(a_t[i])
+        if l_r[i] != 0:
+            sheet_loading_report['D' + str(i + 2)].alignment = Alignment(horizontal='center', vertical='center',
+                                                                         wrap_text=True)
+            # если в количество загруженных таблиц из репорта больше, чем 1, то
+            if len(l_r[i]) > 1:
+                # преобразуем список строк в одну строку через разделитель - пробел
+                s_p = ' '.join(l_r[i])
+                s_p = re.sub('\'', ' ', s_p)
+                sheet_loading_report['D' + str(i + 2)] = s_p
+            else:
+                sheet_loading_report['D' + str(i + 2)] = str(l_r[i][0][1:-1])
+    # дата и время формирования отчёта по загрузке репортов
+    date_time_loading_report = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    # имя файла отчёта по загрузке отчётов
+    name_loading_report = str(date_time_loading_report) + ' Report loading.xlsx'
+    # переименовываем активный лист
+    sheet_loading_report.title = str(date_time_loading_report)
+    # сохраняем отчёт о загрузке в папку 'Loading report', находящийся в том же каталоге (os.path.abspath(os.getcwd())),
+    # что и файл exe
+    # отчёты сохраняем по месяцам в году, что бы не накапливались "снежным" комом в одной папке
+    # если 'Loading report' не существует,
+    new_path = os.path.abspath(os.getcwd()) + '\\Loading report\\' + date_time_loading_report[:7] + '\\'
+    if not os.path.exists(new_path):
+        # то создаём эту папку
+        os.makedirs(new_path)
+    wb.save(new_path + name_loading_report)
+    # открываем только что сохранённый файл с отчётом о загрузке репортов
+    os.startfile(new_path + name_loading_report)
+    # закрываем книгу
+    wb.close()
+    logger_with_user.info('Сформирован файл с отчётом о загрузке репортов\n' + new_path + name_loading_report)
+
 
 
 def main():
     add_table()
-    # amount_reports()
 
 
 if __name__ == '__main__':
