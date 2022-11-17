@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+import time
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -7,7 +10,14 @@ import sys
 from back_end import *
 from gui_create_report import *
 import logging
+import datetime
 import os
+import threading
+import openpyxl
+from openpyxl.styles import Border, Side, PatternFill
+from string import ascii_uppercase
+
+# from openpyxl.utils import get_column_letter
 
 # переменные списков найденных таблиц для вывода, которые будут изменены через global, для дальнейшего удаления в
 # функции delete_report
@@ -21,8 +31,19 @@ authorization = 0
 # получаем имя машины с которой был осуществлён вход в программу
 uname = os.environ.get('USERNAME')
 # настраиваем систему логирования
+# дата LogFile из системы
+date_log_file = datetime.datetime.now().strftime("%m %Y")
+new_path_log_file = ''
+# путь к папке где будет сохраняться LogFile
+new_path_log_file = os.path.abspath(os.getcwd()) + '\\Log File\\'
+# если папка Log File не создана,
+if not os.path.exists(new_path_log_file):
+    # то создаём эту папку
+    os.makedirs(new_path_log_file)
+# путь сохранения + имя LogFile
+name_log_file = new_path_log_file + date_log_file + ' Log File.txt'
 logging.basicConfig(level=logging.INFO,
-                    handlers=[logging.FileHandler(filename='gui_log.log', mode='a', encoding='utf-8')],
+                    handlers=[logging.FileHandler(filename=name_log_file, mode='a', encoding='utf-8')],
                     format='%(asctime)s [%(levelname)s] Пользователь: %(user)s - %(message)s', )
 # дополняем базовый формат записи лог сообщения данными о пользователе
 logger = logging.getLogger()
@@ -70,7 +91,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('A1-3302-RG-011-6-C11-HC')
+line_search.setText('04-YKR-ON-UTT-22-007')
 line_search.setFocus()
 
 # создаём кнопку "Поиск"
@@ -332,13 +353,58 @@ scroll_area.setGeometry(20, 140, 1481, 650)
 
 # нажатие на кнопку "Добавить"
 def add_tables():
-    name_dir = QFileDialog.getExistingDirectory(None, 'Выбрать папку', '.')
-    add_table(name_dir)
-    logger_with_user.info('Добавление новых репортов в базу данных')
+    # выбираем один или несколько файлов с расширением docx
+    name_dir = QFileDialog.getOpenFileNames(None, 'Выбрать папку', '/home', "docx(*.docx)")
+    button_ok.setDisabled(True)
+    # если выбран файл репорт для загрузки, то
+    if name_dir[0]:
+        # анимация загрузки
+        gif_loading()
+        # создаём отдельный поток для выполнения добавления новых репортов
+        thr_add_table = threading.Thread(target=add_table, args=(name_dir,))
+        thr_add_table.start()
+        logger_with_user.info('Добавление новых репортов в базу данных')
+
+
+# список для вывода в файл Excel для печати
+data_for_print = []
+# список названий столбцов для вывод в файл Excel для печати
+name_column_for_print = []
+# список найденных моделей с данными из базы данных
+list_sqm = []
+# список названий листов Excel при печати по названиям кнопок при поиске репортов
+list_name_sheet_for_print = []
+# список минимальных значений
+list_min_thickness = []
+# список минимальных значений толщин в каждом столбце
+list_name_sheet_for_print = []
+# индекс столбца с номинальной толщиной
+index_nom_thickn_name_column = ''
 
 
 # нажатие на кнопку "Поиск"
 def search():
+    global data_for_print, name_column_for_print, list_sqm, list_min_thickness, list_name_sheet_for_print
+    # обнуляем список минимальных значений толщин в каждом столбце
+    list_name_sheet_for_print = []
+    # обнуляем список минимальных значений
+    list_min_thickness = []
+    # обнуляем список для вывода в файл Excel для печати
+    data_for_print = []
+    # обнуляем список названий столбцов для вывода в файл Excel для печати
+    name_column_for_print = []
+    # обнуляем список найденных моделей с данными из базы данных
+    list_sqm = []
+    # активатор, если вызвана статистика
+    global check_statistic_master
+    check_statistic_master = 0
+
+    # проверяем наличие областей tableView для вывода данных
+    # если есть, то закрываем их, чтобы не наслаивались
+    if window.findChildren(QTableView):
+        open_tableview = window.findChildren(QTableView)
+        for i in open_tableview:
+            i.hide()
     if line_search.text():
         # удаляем обозначения дюймов "
         if re.findall(r'\'\'|"|”', line_search.text()):
@@ -550,6 +616,8 @@ def search():
                     list_height_table_view = []
                     # вытягиваем данные из найденных таблиц, формируем таблицу, кнопку названия
                     for i in range(count_table_view):
+                        # список названий столбцов отсчитывая от 'Nominal_thickness
+                        name_column_for_min_thickness = []
                         # определяем глубину вложенности списка заданного для поиска репорта
                         if depthCount(table_for_search_report) == 1:
                             table_for_search_report = []
@@ -571,8 +639,16 @@ def search():
                         # находим минимальное значение в выводимых данных
                         # список минимальных значений толщин в каждом столбце
                         list_min_thickness_column = []
+                        # определяем индекс Nominal_thickness, что искать минимальное значение после него
+                        global index_nom_thickn_name_column
+                        index_nom_thickn_name_column = name_column.index('Nominal_thickness')
+                        # формируем названия столбцов для поиска минимальной толщины без учета ненужных столбцов
+                        for ij in range(index_nom_thickn_name_column + 1, len(name_column)):
+                            name_column_for_min_thickness.append(name_column[ij])
                         # если название столбца не...
-                        for ii in name_column:
+                        # for ii in name_column:
+                        for ii in name_column_for_min_thickness:
+
                             if ii == 'Line' or ii == 'Item_description' or ii == 'Section' or ii == 'Location' \
                                     or ii == 'Remark' or ii == 'Size' or ii == 'Nominal_thickness' or ii == 'Diameter' \
                                     or ii == 'Drawing' or ii == 'P_ID' or ii == 'Date' or ii == 'Distance' \
@@ -690,8 +766,9 @@ def search():
                                 # закрываем соединение с базой данных
                                 cur.close()
                         # после перебора всех допустимых столбцов выбираем минимальное значение
+                        # global list_min_thickness
                         min_thickness = min(list_min_thickness_column)
-
+                        list_min_thickness.append(min_thickness)
                         # высота одной таблицы tableView = количество строк в одной таблице * высоту одной строки +
                         # + высота строки названия столбцов
                         height = count_row_table_view[i] * one_row + one_row
@@ -714,7 +791,7 @@ def search():
                             second_underlining = button_for_table[ind:]
                             # добавляем к названию кнопки дату и work order
                             second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][
-                                1] + '     min = ' + str(min_thickness)
+                                1] + '     min = ' + str(min_thickness) + '     UTT'
                         if table_for_search_drawing:
                             button_for_table = table_for_search_drawing[i]
                             # переменная для поиска даты и work order репорта в таблице master
@@ -733,7 +810,7 @@ def search():
                             second_underlining = button_for_table[ind:]
                             # добавляем к названию кнопки дату и work order
                             second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][
-                                1] + '     min = ' + str(min_thickness)
+                                1] + '     min = ' + str(min_thickness) + '     UTT'
                         # определяем глубину вложенности списка заданного для поиска репорта
                         if depthCount(table_for_search_report) == 1:
                             table_for_search_report = []
@@ -755,7 +832,7 @@ def search():
                             second_underlining = button_for_table[ind:]
                             # добавляем к названию кнопки дату и work order
                             second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][
-                                1] + '     min = ' + str(min_thickness)
+                                1] + '     min = ' + str(min_thickness) + '     UTT'
                         # определяем глубину вложенности списка заданного для поиска work order
                         if depthCount(table_for_search_wo) == 1:
                             table_for_search_wo = []
@@ -776,7 +853,7 @@ def search():
                             second_underlining = button_for_table[ind:]
                             # добавляем к названию кнопки дату и work order
                             second_underlining = second_underlining + '     Date: ' + date_report[i][
-                                0] + '     WO: ' + w_o + '     min = ' + str(min_thickness)
+                                0] + '     WO: ' + w_o + '     min = ' + str(min_thickness) + '     UTT'
 
                         # задаём название кнопки по номеру репорта и помещаем внутрь frame
                         button_for_table = QPushButton(second_underlining, frame_for_table)
@@ -878,6 +955,11 @@ def search():
                             # окрашиваем столбец с номинальной толщиной в зелёный цвет
                             table_view[i].setItemDelegateForColumn(number_column_nominal_thickness,
                                                                    color_nominal_thickness)
+                        # добавляем найденную модель с данными в список для возможной дальнейшей распечатки
+                        list_sqm.append(sqm)
+                        name_column_for_print.append(name_column)
+                        list_name_sheet_for_print.append(second_underlining)
+
                     scroll_area.show()
                     logger_with_user.info(
                         'Произведён поиск данных по номеру {}. Данные найдены'.format(line_search.text()))
@@ -891,7 +973,7 @@ def search():
                     )
                     logger_with_user.info(
                         'Произведён поиск данных по номеру {}. Данные НЕ найдены'.format(line_search.text()))
-        # con.close()
+        con.close()
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -1025,15 +1107,14 @@ def delete_report():
             logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[i])
         cur.close()
 
-    # - добавить master количеством таблиц в каждом репорте - дополнить master столбцом list_table_report со списком таблиц,
-    # которые добавлены в базу данных, и столбец one_of с количеством добавленных таблиц из общего количества в
-    # репорте (3/4б 1/2б 0/3)
-    # - при удалении таблицы убирать из области для отображения таблиц удалённую таблицу
-
 
 # нажатие на кнопку "Сформировать отчёт"
 def create_report():
     window_create_report.show()
+
+
+# активатор статистики
+check_statistic_master = 0
 
 
 def statistic_master():
@@ -1090,6 +1171,10 @@ def statistic_master():
         logger_with_user.info('Просмотр сводных данных из таблицы master')
     # закрываем соединение с базой данных
     con.close()
+    # активатор, если вызвана статистика
+    global check_statistic_master
+    check_statistic_master = 1
+
 
 # нажатие кнопки "Войти"
 def log_in():
@@ -1169,10 +1254,126 @@ def log_out():
     # сбрасываем на ноль авторизацию для отображения флажков
     global authorization
     authorization = 0
-    # скрываем флажки
-    if list_check_box:
-        for i in list_check_box:
-            i.hide()
+    # если перед выходом из авторизации показана НЕ статистика из master (check_statistic_master == 0),
+    if check_statistic_master == 0:
+        # то скрываем флажки
+        if list_check_box:
+            for i in list_check_box:
+                i.hide()
+
+
+# отображение области с gif анимацией при загрузке новых репортов
+def gif_loading():
+    # создаём объект label
+    label_gif = QLabel()
+    # помещаем label в область с полосой прокрутки
+    scroll_area.setWidget(label_gif)
+    # присваиваем уникальное объектное имя
+    label_gif.setObjectName(u"Loading")
+    # его размер
+    label_gif.setGeometry(QRect(0, 0, 1465, 645))
+    label_gif.setAlignment(Qt.AlignCenter)
+    movie = QMovie(u"gif_loading.gif")
+    label_gif.setMovie(movie)
+    # запускаем gif
+    movie.start()
+    # отображаем gif
+    scroll_area.show()
+    # window.update()
+    scroll_area.update()
+
+
+# функция для вывода найденных открытых репортов на лист Excel для дальнейшей печати на принтер
+def print_table():
+    wbb = openpyxl.Workbook()
+    # дата и время формирования файла Excel для печати
+    date_time_for_print = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    # перебираем все выборки данных из базы данных
+    if list_sqm:
+        for c in list_sqm:
+            # индекс номер таблицы по порядку с '0'
+            index_table_for_print = list_sqm.index(c)
+            # создаём новый лист на каждую таблицу
+            sheet_for_print = wbb.create_sheet(str(list_name_sheet_for_print[index_table_for_print]).replace(':', '-')[:25])
+            # вставляем в первую строку название кнопки по выбранной таблицу
+            sheet_for_print.cell(row=1, column=1, value=str(list_name_sheet_for_print[index_table_for_print]))
+            # выделяем её жирным
+            sheet_for_print.cell(row=1, column=1).font = Font(bold=True)
+            # объединяем в первой строке столбцы 'A:J'
+            sheet_for_print.merge_cells('A1:J1')
+            # вставляем во вторую строку названия столбцов
+            for collll in range(len(name_column_for_print[index_table_for_print])):
+                sheet_for_print.cell(row=2, column=collll + 1,
+                                     value=str(name_column_for_print[index_table_for_print][collll]))
+                # выделяем её жирным
+                sheet_for_print.cell(row=2, column=collll + 1).font = Font(bold=True)
+                # центрируем запись внутри
+                sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center', vertical='center')
+                # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями столбцов
+                sheet_for_print.freeze_panes = "A3"
+                # выделяем её границами
+                thin = Side(border_style="thin", color="000000")
+                sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+            ii = 2
+            # проходим по всем строка выборки
+            for row in range(c.rowCount()):
+                ii += 1
+                # обнуляем столбец с которого начинаем заполнять лист Excel
+                jj = 0
+                # по всем столбцам выборки
+                for column in range(c.columnCount()):
+                    jj += 1
+                    # получаем индекс строки и столбца в выборке по порядку
+                    ind = c.index(row, column)
+                    # заполняем лист Excel
+                    sheet_for_print.cell(row=ii, column=jj, value=str(c.data(ind)))
+                    # выделяем основные данные границами
+                    thin = Side(border_style="thin", color="000000")
+                    sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+
+            # ручной автоподбор ширины столбцов по содержимому
+            ascii_range = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+                           'T',
+                           'V', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AK', 'AL', 'AM', 'AN',
+                           'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AV', 'AX', 'AY', 'AZ']
+            # перебираем все заполненные столбцы
+            for coll in range(1, jj + 1):
+                max_length_column = 0
+                # перебираем все заполненные строки
+                for roww in range(2, ii + 1):
+                    sheet_for_print.cell(row=roww, column=int(index_nom_thickn_name_column + 1)).fill = PatternFill(
+                        fgColor="77dd77",
+                        fill_type="solid")
+                    if len(str(sheet_for_print.cell(row=roww, column=coll).value)) > max_length_column:
+                        max_length_column = len(str(sheet_for_print.cell(row=roww, column=coll).value))
+                    # закрашиваем ячейки с минимальной толщиной
+                    try:
+                        if list_min_thickness[index_table_for_print] == float(
+                                sheet_for_print.cell(row=roww, column=coll).value):
+                            sheet_for_print.cell(row=roww, column=coll).fill = PatternFill(fgColor="e34234",
+                                                                                           fill_type="solid")
+                    except ValueError:
+                        continue
+
+                # устанавливаем ширину заполненных столбцов по их содержимому
+                sheet_for_print.column_dimensions[ascii_range[coll]].width = max_length_column + 2
+
+        # путь сохранения в папке с программой
+        new_path_for_print = os.path.abspath(os.getcwd()) + '\\Report for print\\' + date_time_for_print[:7] + '\\'
+        if not os.path.exists(new_path_for_print):
+            # то создаём эту папку
+            os.makedirs(new_path_for_print)
+        # переменная имени файла с расширением для сохранения и последующего открытия
+        name_for_print = str(date_time_for_print) + ' Report for print' + '.xlsx'
+        # Удаление листа, создаваемого по умолчанию, при создании документа
+        del wbb['Sheet']
+        # сохраняем файл
+        wbb.save(new_path_for_print + name_for_print)
+        wbb.close()
+        # и открываем его
+        os.startfile(new_path_for_print + name_for_print)
+        logger_with_user.info(
+        'Вывод на печать репорта(ов)\n' + new_path_for_print + name_for_print)
 
 
 # нажатие кнопки "Войти"
@@ -1181,6 +1382,9 @@ button_log_in.clicked.connect(log_in)
 line_login.returnPressed.connect(log_in)
 # нажатие на кнопку Enter когда фокус (каретка - мигающий символ "|") находится в поле для ввода пароля
 line_password.returnPressed.connect(log_in)
+
+# нажатие на кнопку "Печать"
+button_print.clicked.connect(print_table)
 
 # нажатие на кнопку "Добавить"
 button_add.clicked.connect(add_tables)
@@ -1207,6 +1411,7 @@ button_log_out.clicked.connect(log_out)
 def main():
     try:
         window.show()
+
         sys.exit(app.exec_())
     finally:
         logger_with_user.info('Программа закрыта\n'
