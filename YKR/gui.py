@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-import time
+# import time
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import QSqlDatabase
 from PyQt5.QtSql import QSqlQueryModel
-import sys
+# import sys
 from back_end import *
 from gui_create_report import *
 import logging
@@ -15,8 +15,7 @@ import os
 import threading
 import openpyxl
 from openpyxl.styles import Border, Side, PatternFill
-from string import ascii_uppercase
-
+# from string import ascii_uppercase
 # from openpyxl.utils import get_column_letter
 
 # переменные списков найденных таблиц для вывода, которые будут изменены через global, для дальнейшего удаления в
