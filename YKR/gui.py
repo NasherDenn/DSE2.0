@@ -15,6 +15,7 @@ import os
 import threading
 import openpyxl
 from openpyxl.styles import Border, Side, PatternFill
+
 # from string import ascii_uppercase
 # from openpyxl.utils import get_column_letter
 
@@ -1073,38 +1074,54 @@ def delete_report():
         if i == 2:
             list_index_for_delete.append(index_report_for_delete)
         index_report_for_delete += 1
-    # подключаемся в базе данных
-    conn = sqlite3.connect('reports_db.sqlite')
-    cur = conn.cursor()
-    # если одна строка
-    if type(list_table_for_delete_report) == str:
-        # и стоит флажок, то удаляем таблицу, т.к. она одна
-        if list_index_for_delete:
-            # удаляем таблицу из базы данных
-            cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
-        # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
-        if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
-                list_table_for_delete_report[-15:])).fetchone():
-            cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
-            conn.commit()
-        logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report)
-        cur.close()
-    # если список
-    if type(list_table_for_delete_report) == list:
-        # и стоит флажок
-        if list_index_for_delete:
-            # то выбираем для удаления таблицу по номеру индекса (list_index_for_delete) в list_table_for_delete_report
-            for i in list_index_for_delete:
-                # удаляем таблицу из базы данных
-                cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[i]))
-            # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
-            if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
-                    list_table_for_delete_report[i][-15:])).fetchone():
-                cur.execute(
-                    'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[i][-15:]))
-                conn.commit()
-            logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[i])
-        cur.close()
+    # если выбран(ы) репорт для удаления, то
+    if 2 in set(check_uncheck_report_for_delete):
+        # спрашиваем, точно ли надо удалять репорт(ы)
+        question_delete = QMessageBox()
+        question_delete.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        question_delete.setWindowTitle('Внимание')
+        question_delete.setText('Вы уверены, что хотите удалить данные репорты?')
+        # если нажата кнопка "Да", то
+        if question_delete.exec() == QMessageBox.Yes:
+            # подключаемся в базе данных
+            conn = sqlite3.connect('reports_db.sqlite')
+            cur = conn.cursor()
+            # если одна строка
+            if type(list_table_for_delete_report) == str:
+                # и стоит флажок, то удаляем таблицу, т.к. она одна
+                if list_index_for_delete:
+                    # удаляем таблицу из базы данных
+                    cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
+                # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
+                if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
+                        list_table_for_delete_report[-15:])).fetchone():
+                    cur.execute(
+                        'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
+                    conn.commit()
+                logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report)
+                cur.close()
+            # если список
+            if type(list_table_for_delete_report) == list:
+                # и стоит флажок
+                if list_index_for_delete:
+                    # то выбираем для удаления таблицу по номеру индекса (list_index_for_delete)
+                    # в list_table_for_delete_report
+                    for i in list_index_for_delete:
+                        # удаляем таблицу из базы данных
+                        cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[i]))
+                    # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
+                    if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
+                            list_table_for_delete_report[i][-15:])).fetchone():
+                        cur.execute(
+                            'DELETE from master WHERE report_number LIKE "%{}%"'.format(
+                                list_table_for_delete_report[i][-15:]))
+                        conn.commit()
+                    logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[i])
+                cur.close()
+            QMessageBox.information(window,
+                                    'Внимание!',
+                                    'Выбранные репорты удалены!')
+            search()
 
 
 # нажатие на кнопку "Сформировать отчёт"
@@ -1293,7 +1310,8 @@ def print_table():
             # индекс номер таблицы по порядку с '0'
             index_table_for_print = list_sqm.index(c)
             # создаём новый лист на каждую таблицу
-            sheet_for_print = wbb.create_sheet(str(list_name_sheet_for_print[index_table_for_print]).replace(':', '-')[:25])
+            sheet_for_print = wbb.create_sheet(
+                str(list_name_sheet_for_print[index_table_for_print]).replace(':', '-')[:25])
             # вставляем в первую строку название кнопки по выбранной таблицу
             sheet_for_print.cell(row=1, column=1, value=str(list_name_sheet_for_print[index_table_for_print]))
             # выделяем её жирным
@@ -1307,12 +1325,15 @@ def print_table():
                 # выделяем её жирным
                 sheet_for_print.cell(row=2, column=collll + 1).font = Font(bold=True)
                 # центрируем запись внутри
-                sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center', vertical='center')
-                # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями столбцов
+                sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center',
+                                                                                     vertical='center')
+                # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями
+                # столбцов
                 sheet_for_print.freeze_panes = "A3"
                 # выделяем её границами
                 thin = Side(border_style="thin", color="000000")
-                sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin,
+                                                                               bottom=thin)
             ii = 2
             # проходим по всем строка выборки
             for row in range(c.rowCount()):
@@ -1328,12 +1349,14 @@ def print_table():
                     sheet_for_print.cell(row=ii, column=jj, value=str(c.data(ind)))
                     # выделяем основные данные границами
                     thin = Side(border_style="thin", color="000000")
-                    sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin,
+                                                                            bottom=thin)
 
             # ручной автоподбор ширины столбцов по содержимому
             ascii_range = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
                            'T',
-                           'V', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AK', 'AL', 'AM', 'AN',
+                           'V', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AK', 'AL', 'AM',
+                           'AN',
                            'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AV', 'AX', 'AY', 'AZ']
             # перебираем все заполненные столбцы
             for coll in range(1, jj + 1):
@@ -1371,8 +1394,7 @@ def print_table():
         wbb.close()
         # и открываем его
         os.startfile(new_path_for_print + name_for_print)
-        logger_with_user.info(
-        'Вывод на печать репорта(ов)\n' + new_path_for_print + name_for_print)
+        logger_with_user.info('Вывод на печать репорта(ов)\n' + new_path_for_print + name_for_print)
 
 
 # нажатие кнопки "Войти"
