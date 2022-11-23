@@ -1092,6 +1092,9 @@ def delete_report():
                 if list_index_for_delete:
                     # удаляем таблицу из базы данных
                     cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
+
+                    update_master_by_delete(list_table_for_delete_report)
+
                 # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
                 if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
                         list_table_for_delete_report[-15:])).fetchone():
@@ -1109,6 +1112,9 @@ def delete_report():
                     for i in list_index_for_delete:
                         # удаляем таблицу из базы данных
                         cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[i]))
+
+                        update_master_by_delete(list_table_for_delete_report)
+
                     # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
                     if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
                             list_table_for_delete_report[i][-15:])).fetchone():
@@ -1122,6 +1128,79 @@ def delete_report():
                                     'Внимание!',
                                     'Выбранные репорты удалены!')
             search()
+
+
+# функция обновления столбцов 'one_of' и 'list_table_report' таблицы master при удалении таблиц из неё
+# l_t_f_d_r =  list_table_for_delete_report = список таблиц для удаления
+def update_master_by_delete(l_t_f_d_r):
+    # подключаемся в базе данных
+    conn = sqlite3.connect('reports_db.sqlite')
+    cur = conn.cursor()
+    # перебираем таблицы для удаления
+    print(type(l_t_f_d_r))
+    if type(l_t_f_d_r) == str:
+        if cur.execute('SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)):
+            # получаем номера всех записанных таблиц в виде строки
+            variable_report_for_delete_from_master = cur.execute(
+                'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(
+                    l_t_f_d_r)).fetchall()[0][0]
+            # получаем данные из колонки 'one_of'
+            one_of_for_minus = cur.execute('SELECT one_of FROM master WHERE list_table_report LIKE "%{}%"'.format(
+                    l_t_f_d_r)).fetchall()[0][0]
+
+
+            # получаем индекс '/' в строке on_of
+            index_of_slash = one_of_for_minus.index('/')
+            # получаем первое число перед знаком '/' и преобразуем его в число
+            number_load_report_for_minus = int(one_of_for_minus[:index_of_slash])
+            # уменьшаем количество загруженных репортов на один и преобразуем обратно в строку
+            number_load_report_for_minus_new = str(number_load_report_for_minus - 1)
+            # формируем новое значение 'one_of' для обновления
+            one_of_for_minus_new = number_load_report_for_minus_new + one_of_for_minus[index_of_slash:]
+
+            print(one_of_for_minus_new)
+            # определяем номер репорта
+            variable = cur.execute(
+                'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(
+                    l_t_f_d_r)).fetchall()[0][0]
+            # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
+            variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
+                '\'' + l_t_f_d_r + '\'', '')
+            # удаляем в найденной строке лишние символы новой строки
+            variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n',
+                                                                                                            '\n')
+            # обновляем ячейку с номерами всех оставшихся таблиц 'list_table_report'
+            cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+                variable_report_for_delete_from_master_new, variable))
+            # обновляем ячейку с количеством загруженных таблиц 'one_of'
+            cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(
+                one_of_for_minus_new, variable))
+
+
+    elif type(l_t_f_d_r) == list:
+        for i in l_t_f_d_r:
+            if cur.execute(
+                    'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)):
+                # получаем номера всех записанных таблиц в виде строки
+                variable_report_for_delete_from_master = cur.execute(
+                    'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(
+                        i)).fetchall()[0][0]
+                # определяем номер репорта
+                variable = cur.execute(
+                    'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][
+                    0]
+                # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
+                variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
+                    '\'' + i + '\'', '')
+                # удаляем в найденной строке лишние символы новой строки
+                variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n',
+                                                                                                                '\n')
+                # обновляем ячейку с номерами всех оставшихся таблиц
+                cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+                    variable_report_for_delete_from_master_new, variable))
+
+    conn.commit()
+    cur.close()
 
 
 # нажатие на кнопку "Сформировать отчёт"
