@@ -11,13 +11,12 @@ from YKR.props import DB_NAME
 import os
 import logging
 
-
-
 # получаем имя машины с которой был осуществлён вход в программу
 uname = os.environ.get('USERNAME')
 # инициализируем logger
 logger = logging.getLogger()
 logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
+
 
 # функция для извлечения данных из репортов и записи в базу данных при нажатии на кнопку "Добавить"
 def add_table(name_dir):
@@ -949,9 +948,9 @@ def add_table(name_dir):
             #             print(clear_table_bottom)
             #             print(clear_table_bottom[i])
             #             print(line_for_head)
-
-                        # добавляем номер линии в столбец
-                        # clear_table_bottom[i][ii].insert(0, line_for_head)
+            #
+            #             # добавляем номер линии в столбец
+            #             # clear_table_bottom[i][ii].insert(0, line_for_head)
 
             # меняем все "," на ".", убираем все (") в clear_table_bottom, для поиска минимального значения в выводимой
             # таблице
@@ -1039,29 +1038,50 @@ def add_table(name_dir):
                 li_rep.append(list_add_table)
             else:
                 li_rep.append(0)
-            # если статус активатора не изменён (такой репорт еще не занесён в базу данных)
+            # если статус активатора НЕ изменён (такой репорт еще не занесён в базу данных)
             if check_report_number == 0:
-                # то перебираем номера репортов
-                for i in cur.execute('SELECT name FROM sqlite_master').fetchall():
-                    # и вносим данные из того репорта, который соответствует искомому номеру
-                    if rep_number['report_number'][-6:] == i[0][-6:]:
-                        # и вносим данные из rep_number в таблицу master
-                        cur.execute(
-                            'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
-                                                                          rep_number['report_date'],
-                                                                          rep_number['work_order'],
-                                                                          str(check_amount_reports) + '/' + str(
-                                                                              len(clear_table_bottom.keys())),
-                                                                          str_add_table))
-                        conn.commit()
-                        # прерываем дальнейший перебор
-                        break
+                # вносим данные из rep_number в таблицу master
+                if not check_amount_reports == 0:
+                    cur.execute(
+                        'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
+                                                                      rep_number['report_date'],
+                                                                      rep_number['work_order'],
+                                                                      str(check_amount_reports) + '/' + str(
+                                                                          len(clear_table_bottom.keys())),
+                                                                      str_add_table))
+                    conn.commit()
+
+            # если статус активатора изменён (такой репорт уже есть в базе данных)
+            if check_report_number > 0:
+                # то находим этот репорт и получаем данные из столбца 'one_of' и 'list_table_report'
+                # получаем номера всех записанных таблиц в виде строки
+                variable_for_add_table_for_master = cur.execute(
+                    'SELECT list_table_report FROM master WHERE report_number = "{}"'.format(
+                        rep_number['report_number'])).fetchall()[0][0]
+                # получаем данные из колонки 'one_of'
+                one_of_for_plus = cur.execute('SELECT one_of FROM master WHERE report_number = "{}"'.format(
+                    rep_number['report_number'])).fetchall()[0][0]
+                # добавляем в список таблиц новую
+                variable_for_add_table_for_master_new = variable_for_add_table_for_master + str_add_table
+                # получаем индекс '/' в строке one_of
+                index_of_slash = one_of_for_plus.index('/')
+                # получаем первое число перед знаком '/' и преобразуем его в число
+                number_load_report_for_plus = int(one_of_for_plus[:index_of_slash])
+                # увеличиваем количество загруженных репортов на один и преобразуем обратно в строку
+                number_load_report_for_plus_new = str(number_load_report_for_plus + check_amount_reports)
+                # формируем новое значение 'one_of' для обновления
+                one_of_for_plus_new = number_load_report_for_plus_new + one_of_for_plus[index_of_slash:]
+                # обновляем ячейку с номерами вновь добавленных таблиц 'list_table_report'
+                cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+                    variable_for_add_table_for_master_new, rep_number['report_number']))
+                # обновляем ячейку с количеством загруженных таблиц 'one_of'
+                cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(
+                    one_of_for_plus_new, rep_number['report_number']))
+                conn.commit()
+            logger_with_user.info('Добавление новых репортов в базу данных')
             # закрываем соединение с базой данной
             conn.close()
     loading_report(len(list_find_docx), list_load_report, load_table, all_table, li_rep)
-
-
-# написать load_table
 
 
 # len_list_find_docx = len(list_find_docx) = количество загружаемых файлов xlsx
@@ -1070,7 +1090,6 @@ def add_table(name_dir):
 # a_t = all_table = список количество таблиц в файле (репорте)
 # l_r = li_rep = список записанных таблиц в репорте
 # функция формирования отчёта по загрузке репортов в формате Excel
-
 def loading_report(len_list_find_docx, l_l_r, l_t, a_t, l_r):
     wb = openpyxl.Workbook()
     # делаем активным первый лист
@@ -1159,7 +1178,6 @@ def loading_report(len_list_find_docx, l_l_r, l_t, a_t, l_r):
     # закрываем книгу
     wb.close()
     logger_with_user.info('Сформирован файл с отчётом о загрузке репортов\n' + new_path + name_loading_report)
-
 
 
 def main():
