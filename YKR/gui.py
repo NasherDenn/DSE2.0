@@ -984,6 +984,10 @@ def search():
         logger_with_user.info('Попытка поиска данных с пустой строкой поиска')
 
 
+# список нажатых кнопок
+list_button_for_table_true = []
+
+
 # функция отображения и повторного скрытия таблиц в frame
 # l_t_v = list_table_view = список всех таблиц
 # l_b_t = list_button_for_table = список всех номеров репортов
@@ -1000,7 +1004,8 @@ def visible_table_view(x1, l_t_v, l_b_t, l_ch_b, l_h_t_v):
     position_y1 = []
     # список новых координат таблиц
     position_y2 = []
-    # список нажатых кнопок
+    global list_button_for_table_true
+    # обнуляем список нажатых кнопок
     list_button_for_table_true = []
     # список отжатых кнопок
     list_button_for_table_false = []
@@ -1092,7 +1097,7 @@ def delete_report():
                 if list_index_for_delete:
                     # удаляем таблицу из базы данных
                     cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
-
+                    # обновляем данные в таблице master по удалённым таблицам
                     update_master_by_delete(list_table_for_delete_report)
 
                 # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
@@ -1112,7 +1117,7 @@ def delete_report():
                     for i in list_index_for_delete:
                         # удаляем таблицу из базы данных
                         cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[i]))
-
+                        # обновляем данные в таблице master по удалённым таблицам
                         update_master_by_delete(list_table_for_delete_report)
 
                     # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
@@ -1146,8 +1151,7 @@ def update_master_by_delete(l_t_f_d_r):
                     l_t_f_d_r)).fetchall()[0][0]
             # получаем данные из колонки 'one_of'
             one_of_for_minus = cur.execute('SELECT one_of FROM master WHERE list_table_report LIKE "%{}%"'.format(
-                    l_t_f_d_r)).fetchall()[0][0]
-
+                l_t_f_d_r)).fetchall()[0][0]
 
             # получаем индекс '/' в строке on_of
             index_of_slash = one_of_for_minus.index('/')
@@ -1385,95 +1389,96 @@ def print_table():
     date_time_for_print = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     # перебираем все выборки данных из базы данных
     if list_sqm:
-        for c in list_sqm:
-            # индекс номер таблицы по порядку с '0'
-            index_table_for_print = list_sqm.index(c)
-            # создаём новый лист на каждую таблицу
-            sheet_for_print = wbb.create_sheet(
-                str(list_name_sheet_for_print[index_table_for_print]).replace(':', '-')[:25])
-            # вставляем в первую строку название кнопки по выбранной таблицу
-            sheet_for_print.cell(row=1, column=1, value=str(list_name_sheet_for_print[index_table_for_print]))
-            # выделяем её жирным
-            sheet_for_print.cell(row=1, column=1).font = Font(bold=True)
-            # объединяем в первой строке столбцы 'A:J'
-            sheet_for_print.merge_cells('A1:J1')
-            # вставляем во вторую строку названия столбцов
-            for collll in range(len(name_column_for_print[index_table_for_print])):
-                sheet_for_print.cell(row=2, column=collll + 1,
-                                     value=str(name_column_for_print[index_table_for_print][collll]))
+        # если открыта хоть одна найденная таблица
+        if list_button_for_table_true:
+            # перебираем номера открытых репортов (выбранные для печати)
+            for i in list_button_for_table_true:
+                c = list_sqm[i]
+                # индекс номера таблицы по порядку с '0'
+                index_table_for_print = list_sqm.index(c)
+                # создаём новый лист на каждую таблицу
+                sheet_for_print = wbb.create_sheet(
+                    str(list_name_sheet_for_print[index_table_for_print]).replace(':', '-')[:25])
+                # вставляем в первую строку название кнопки по выбранной таблицу
+                sheet_for_print.cell(row=1, column=1, value=str(list_name_sheet_for_print[index_table_for_print]))
                 # выделяем её жирным
-                sheet_for_print.cell(row=2, column=collll + 1).font = Font(bold=True)
-                # центрируем запись внутри
-                sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center',
-                                                                                     vertical='center')
-                # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями
-                # столбцов
-                sheet_for_print.freeze_panes = "A3"
-                # выделяем её границами
-                thin = Side(border_style="thin", color="000000")
-                sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin,
-                                                                               bottom=thin)
-            ii = 2
-            # проходим по всем строка выборки
-            for row in range(c.rowCount()):
-                ii += 1
-                # обнуляем столбец с которого начинаем заполнять лист Excel
-                jj = 0
-                # по всем столбцам выборки
-                for column in range(c.columnCount()):
-                    jj += 1
-                    # получаем индекс строки и столбца в выборке по порядку
-                    ind = c.index(row, column)
-                    # заполняем лист Excel
-                    sheet_for_print.cell(row=ii, column=jj, value=str(c.data(ind)))
-                    # выделяем основные данные границами
+                sheet_for_print.cell(row=1, column=1).font = Font(bold=True)
+                # объединяем в первой строке столбцы 'A:J'
+                sheet_for_print.merge_cells('A1:J1')
+                # вставляем во вторую строку названия столбцов
+                for collll in range(len(name_column_for_print[index_table_for_print])):
+                    sheet_for_print.cell(row=2, column=collll + 1,
+                                         value=str(name_column_for_print[index_table_for_print][collll]))
+                    # выделяем её жирным
+                    sheet_for_print.cell(row=2, column=collll + 1).font = Font(bold=True)
+                    # центрируем запись внутри
+                    sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center',
+                                                                                         vertical='center')
+                    # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями
+                    # столбцов
+                    sheet_for_print.freeze_panes = "A3"
+                    # выделяем её границами
                     thin = Side(border_style="thin", color="000000")
-                    sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin,
-                                                                            bottom=thin)
+                    sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin,
+                                                                                   bottom=thin)
+                ii = 2
+                # проходим по всем строка выборки
+                for row in range(c.rowCount()):
+                    ii += 1
+                    # обнуляем столбец с которого начинаем заполнять лист Excel
+                    jj = 0
+                    # по всем столбцам выборки
+                    for column in range(c.columnCount()):
+                        jj += 1
+                        # получаем индекс строки и столбца в выборке по порядку
+                        ind = c.index(row, column)
+                        # заполняем лист Excel
+                        sheet_for_print.cell(row=ii, column=jj, value=str(c.data(ind)))
+                        # выделяем основные данные границами
+                        thin = Side(border_style="thin", color="000000")
+                        sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin,
+                                                                                bottom=thin)
+                # ручной автоподбор ширины столбцов по содержимому
+                ascii_range = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+                               'S', 'T', 'V', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI',
+                               'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AV', 'AX', 'AY', 'AZ']
+                # перебираем все заполненные столбцы
+                for coll in range(1, jj + 1):
+                    max_length_column = 0
+                    # перебираем все заполненные строки
+                    for roww in range(2, ii + 1):
+                        sheet_for_print.cell(row=roww, column=int(index_nom_thickn_name_column + 1)).fill = PatternFill(
+                            fgColor="77dd77",
+                            fill_type="solid")
+                        if len(str(sheet_for_print.cell(row=roww, column=coll).value)) > max_length_column:
+                            max_length_column = len(str(sheet_for_print.cell(row=roww, column=coll).value))
+                        # закрашиваем ячейки с минимальной толщиной
+                        try:
+                            if list_min_thickness[index_table_for_print] == float(
+                                    sheet_for_print.cell(row=roww, column=coll).value):
+                                sheet_for_print.cell(row=roww, column=coll).fill = PatternFill(fgColor="e34234",
+                                                                                               fill_type="solid")
+                        except ValueError:
+                            continue
 
-            # ручной автоподбор ширины столбцов по содержимому
-            ascii_range = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
-                           'T',
-                           'V', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AK', 'AL', 'AM',
-                           'AN',
-                           'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AV', 'AX', 'AY', 'AZ']
-            # перебираем все заполненные столбцы
-            for coll in range(1, jj + 1):
-                max_length_column = 0
-                # перебираем все заполненные строки
-                for roww in range(2, ii + 1):
-                    sheet_for_print.cell(row=roww, column=int(index_nom_thickn_name_column + 1)).fill = PatternFill(
-                        fgColor="77dd77",
-                        fill_type="solid")
-                    if len(str(sheet_for_print.cell(row=roww, column=coll).value)) > max_length_column:
-                        max_length_column = len(str(sheet_for_print.cell(row=roww, column=coll).value))
-                    # закрашиваем ячейки с минимальной толщиной
-                    try:
-                        if list_min_thickness[index_table_for_print] == float(
-                                sheet_for_print.cell(row=roww, column=coll).value):
-                            sheet_for_print.cell(row=roww, column=coll).fill = PatternFill(fgColor="e34234",
-                                                                                           fill_type="solid")
-                    except ValueError:
-                        continue
+                    # устанавливаем ширину заполненных столбцов по их содержимому
+                    sheet_for_print.column_dimensions[ascii_range[coll]].width = max_length_column + 2
 
-                # устанавливаем ширину заполненных столбцов по их содержимому
-                sheet_for_print.column_dimensions[ascii_range[coll]].width = max_length_column + 2
-
-        # путь сохранения в папке с программой
-        new_path_for_print = os.path.abspath(os.getcwd()) + '\\Report for print\\' + date_time_for_print[:7] + '\\'
-        if not os.path.exists(new_path_for_print):
-            # то создаём эту папку
-            os.makedirs(new_path_for_print)
-        # переменная имени файла с расширением для сохранения и последующего открытия
-        name_for_print = str(date_time_for_print) + ' Report for print' + '.xlsx'
-        # Удаление листа, создаваемого по умолчанию, при создании документа
-        del wbb['Sheet']
-        # сохраняем файл
-        wbb.save(new_path_for_print + name_for_print)
-        wbb.close()
-        # и открываем его
-        os.startfile(new_path_for_print + name_for_print)
-        logger_with_user.info('Вывод на печать репорта(ов)\n' + new_path_for_print + name_for_print)
+            # путь сохранения в папке с программой
+            new_path_for_print = os.path.abspath(os.getcwd()) + '\\Report for print\\' + date_time_for_print[:7] + '\\'
+            if not os.path.exists(new_path_for_print):
+                # то создаём эту папку
+                os.makedirs(new_path_for_print)
+            # переменная имени файла с расширением для сохранения и последующего открытия
+            name_for_print = str(date_time_for_print) + ' Report for print' + '.xlsx'
+            # Удаление листа, создаваемого по умолчанию, при создании документа
+            del wbb['Sheet']
+            # сохраняем файл
+            wbb.save(new_path_for_print + name_for_print)
+            wbb.close()
+            # и открываем его
+            os.startfile(new_path_for_print + name_for_print)
+            logger_with_user.info('Вывод на печать репорта(ов)\n' + new_path_for_print + name_for_print)
 
 
 # нажатие кнопки "Войти"
