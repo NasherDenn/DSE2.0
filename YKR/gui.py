@@ -51,7 +51,7 @@ app = QApplication(sys.argv)
 # создаём окно приложения
 window = QWidget()
 # название приложения
-window.setWindowTitle('Finder')
+window.setWindowTitle('Data Search Engine')
 # задаём стиль приложения Fusion
 app.setStyle('Fusion')
 # размер окна приложения
@@ -59,8 +59,9 @@ window.setFixedSize(1524, 872)
 
 # устанавливаем favicon в окне приложения
 icon = QIcon()
-icon.addFile(u"favicon.png", QSize(), QIcon.Normal, QIcon.Off)
-icon.addFile(u"favicon.png", QSize(), QIcon.Active, QIcon.On)
+icon.addFile(u"icon.ico", QSize(), QIcon.Normal, QIcon.Off)
+icon.addFile(u"icon.ico", QSize(), QIcon.Active, QIcon.On)
+
 app.setWindowIcon(icon)
 
 # создаём однострочное поле для ввода номер линии или чертежа
@@ -1361,13 +1362,104 @@ def gif_loading():
     scroll_area.update()
 
 
-# функция для вывода найденных открытых репортов на лист Excel для дальнейшей печати на принтер
+# функция для вывода найденных открытых репортов и сводных данных на лист Excel для дальнейшей печати на принтер
 def print_table():
     wbb = openpyxl.Workbook()
     # дата и время формирования файла Excel для печати
     date_time_for_print = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    thin = Side(border_style="thin", color="000000")
+    # если открыты "Сводные данные"
+    if check_statistic_master == 1:
+        # создаём новый лист на каждую таблицу
+        sheet_for_print = wbb.create_sheet('Statistic')
+        # вставляем в ячейку "A1" название столбца "Номер репорта"
+        sheet_for_print.cell(row=1, column=1, value=str("Номер репорта"))
+        # выделяем её жирным
+        sheet_for_print.cell(row=1, column=1).font = Font(bold=True)
+        # центрируем запись внутри
+        sheet_for_print.cell(row=1, column=1).alignment = Alignment(horizontal='center', vertical='center')
+        # Устанавливаем ширину столбца "A"
+        sheet_for_print.column_dimensions['A'].width = 30
+        # выделяем её границами
+        sheet_for_print.cell(row=1, column=1).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+        # вставляем в ячейку "B1" название столбца "Дата репорта"
+        sheet_for_print.cell(row=1, column=2, value=str("Дата репорта"))
+        # выделяем её жирным
+        sheet_for_print.cell(row=1, column=2).font = Font(bold=True)
+        # центрируем запись внутри
+        sheet_for_print.cell(row=1, column=2).alignment = Alignment(horizontal='center', vertical='center')
+        # Устанавливаем ширину столбца "B"
+        sheet_for_print.column_dimensions['B'].width = 15
+        # выделяем её границами
+        sheet_for_print.cell(row=1, column=2).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+        # вставляем в ячейку "C1" название столбца "Work order"
+        sheet_for_print.cell(row=1, column=3, value=str("Work order"))
+        # выделяем её жирным
+        sheet_for_print.cell(row=1, column=3).font = Font(bold=True)
+        # центрируем запись внутри
+        sheet_for_print.cell(row=1, column=3).alignment = Alignment(horizontal='center', vertical='center')
+        # Устанавливаем ширину столбца "C"
+        sheet_for_print.column_dimensions['C'].width = 15
+        # выделяем её границами
+        sheet_for_print.cell(row=1, column=3).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+        # вставляем в ячейку "D1" название столбца "Загружено таблиц в БД / всего таблиц в файле"
+        sheet_for_print.cell(row=1, column=4, value=str("Загружено таблиц в БД / всего таблиц в файле"))
+        # выделяем её жирным
+        sheet_for_print.cell(row=1, column=4).font = Font(bold=True)
+        # центрируем запись внутри и переносим по словам
+        sheet_for_print.cell(row=1, column=4).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # Устанавливаем ширину столбца "D"
+        sheet_for_print.column_dimensions['D'].width = 15
+        # выделяем её границами
+        sheet_for_print.cell(row=1, column=4).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+        # вставляем в ячейку "E1" название столбца "Список таблиц в БД"
+        sheet_for_print.cell(row=1, column=5, value=str("Список таблиц в БД"))
+        # выделяем её жирным
+        sheet_for_print.cell(row=1, column=5).font = Font(bold=True)
+        # центрируем запись внутри
+        sheet_for_print.cell(row=1, column=5).alignment = Alignment(horizontal='center', vertical='center')
+        # Устанавливаем ширину столбца "E"
+        sheet_for_print.column_dimensions['E'].width = 35
+        # выделяем её границами
+        sheet_for_print.cell(row=1, column=5).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+        # закрепляем первую строку с названием столбцов
+        sheet_for_print.freeze_panes = "A2"
+
+        # подключаемся в базе данных
+        conn = sqlite3.connect('reports_db.sqlite')
+        cur = conn.cursor()
+        # получаем все данные из таблицы master и сортируем по номеру репорта
+        myself = cur.execute("SELECT * FROM master ORDER BY report_number")
+        # перебираем строки в master
+        for i, row in enumerate(myself):
+            # перебираем столбцы в master
+            for j, value in enumerate(row):
+                # записываем значения в ячейки Excel
+                sheet_for_print.cell(row=i + 2, column=j + 1, value=row[j])
+                # центрируем запись внутри
+                sheet_for_print.cell(row=i + 2, column=j + 1).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                # выделяем её границами
+                sheet_for_print.cell(row=i + 2, column=j + 1).border = Border(top=thin, left=thin, right=thin, bottom=thin)
+        cur.close()
+        # путь сохранения в папке с программой
+        new_path_for_print_statistic = os.path.abspath(os.getcwd()) + '\\Statistic for print\\' + date_time_for_print[:7] + '\\'
+        if not os.path.exists(new_path_for_print_statistic):
+            # то создаём эту папку
+            os.makedirs(new_path_for_print_statistic)
+        # переменная имени файла с расширением для сохранения и последующего открытия
+        name_for_print_statistic = str(date_time_for_print) + ' Statistic for print' + '.xlsx'
+        # Удаление листа, создаваемого по умолчанию, при создании документа
+        del wbb['Sheet']
+        # сохраняем файл
+        wbb.save(new_path_for_print_statistic + name_for_print_statistic)
+        wbb.close()
+        # и открываем его
+        os.startfile(new_path_for_print_statistic + name_for_print_statistic)
+        logger_with_user.info('Вывод на печать сводных данных\n' + new_path_for_print_statistic + name_for_print_statistic)
+
+    # если открыты найденные репорты
     # перебираем все выборки данных из базы данных
-    if list_sqm:
+    elif list_sqm:
         # если открыта хоть одна найденная таблица
         if list_button_for_table_true:
             # перебираем номера открытых репортов (выбранные для печати)
@@ -1392,11 +1484,9 @@ def print_table():
                     sheet_for_print.cell(row=2, column=collll + 1).font = Font(bold=True)
                     # центрируем запись внутри
                     sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center', vertical='center')
-                    # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями
-                    # столбцов
+                    # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями столбцов
                     sheet_for_print.freeze_panes = "A3"
                     # выделяем её границами
-                    thin = Side(border_style="thin", color="000000")
                     sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin, bottom=thin)
                 ii = 2
                 # проходим по всем строка выборки
@@ -1412,7 +1502,6 @@ def print_table():
                         # заполняем лист Excel
                         sheet_for_print.cell(row=ii, column=jj, value=str(c.data(ind)))
                         # выделяем основные данные границами
-                        thin = Side(border_style="thin", color="000000")
                         sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin, bottom=thin)
                 # ручной автоподбор ширины столбцов по содержимому
                 ascii_range = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
