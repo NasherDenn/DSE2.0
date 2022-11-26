@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
-# import time
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import QSqlDatabase
 from PyQt5.QtSql import QSqlQueryModel
-# import sys
 from back_end import *
 from gui_create_report import *
 import logging
@@ -15,9 +13,6 @@ import os
 import threading
 import openpyxl
 from openpyxl.styles import Border, Side, PatternFill
-
-# from string import ascii_uppercase
-# from openpyxl.utils import get_column_letter
 
 # переменные списков найденных таблиц для вывода, которые будут изменены через global, для дальнейшего удаления в
 # функции delete_report
@@ -368,7 +363,7 @@ def add_tables():
 
 # список для вывода в файл Excel для печати
 data_for_print = []
-# список названий столбцов для вывод в файл Excel для печати
+# список названий столбцов для вывода в файл Excel для печати
 name_column_for_print = []
 # список найденных моделей с данными из базы данных
 list_sqm = []
@@ -379,7 +374,7 @@ list_min_thickness = []
 # список минимальных значений толщин в каждом столбце
 list_name_sheet_for_print = []
 # индекс столбца с номинальной толщиной
-index_nom_thickn_name_column = ''
+index_nom_thickness_name_column = ''
 
 
 # нажатие на кнопку "Поиск"
@@ -452,16 +447,14 @@ def search():
                     # если 'Line' есть в названии столбца
                     if 'Line' in k:
                         # и если искомая линия есть в таблице, то добавляем имя таблицы в список table_for_search_line
-                        if cur.execute(
-                                'SELECT Line FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall():
+                        if cur.execute('SELECT Line FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall():
                             table_for_search_line.append(i)
                     # если 'Drawing' есть в названии столбца
                     if 'Drawing' in k:
                         # и если искомый чертёж есть в таблице, то добавляем имя таблицы в список
                         # table_for_search_drawing
                         if cur.execute(
-                                'SELECT Drawing FROM {} WHERE Drawing LIKE "%{}%"'.format(i,
-                                                                                          line_for_search)).fetchall():
+                                'SELECT Drawing FROM {} WHERE Drawing LIKE "%{}%"'.format(i, line_for_search)).fetchall():
                             table_for_search_drawing.append(i)
                 cur.close()
 
@@ -474,11 +467,9 @@ def search():
                 # меняем '-' на '_'
                 line_for_search_report = re.sub('-', '_', line_for_search)
                 # если нашли номер репорта в sqlite_master
-                if cur.execute(
-                        'SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(line_for_search_report)):
-                    table_for_search_report.append(cur.execute(
-                        'SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(
-                            line_for_search_report)).fetchall())
+                if cur.execute('SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(line_for_search_report)):
+                    table_for_search_report.append(cur.execute('SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(
+                        line_for_search_report)).fetchall())
                 cur.close()
 
             # если в поле для поиска указан номер work order
@@ -488,15 +479,14 @@ def search():
                 conn = sqlite3.connect('reports_db.sqlite')
                 cur = conn.cursor()
                 # если нашли work order в master
-                if cur.execute(
-                        'SELECT report_number FROM master WHERE work_order="{}"'.format(line_for_search)):
-                    reports_for_search_wo.append(cur.execute(
-                        'SELECT report_number FROM master WHERE work_order="{}"'.format(line_for_search)).fetchall())
+                if cur.execute('SELECT report_number FROM master WHERE work_order="{}"'.format(line_for_search)):
+                    reports_for_search_wo.append(
+                        cur.execute('SELECT report_number FROM master WHERE work_order="{}"'.format(line_for_search)).fetchall())
                     # перебираем найденные номера репортов
                     for ii in reports_for_search_wo[0]:
                         # добавляем в список если нашли номера таблиц
-                        table_for_search_wo.append(cur.execute(
-                            'SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(ii[0])).fetchall())
+                        table_for_search_wo.append(
+                            cur.execute('SELECT tbl_name FROM sqlite_master WHERE name LIKE "%{}"'.format(ii[0])).fetchall())
                 # закрываем соединение
                 cur.close()
 
@@ -571,8 +561,7 @@ def search():
                         for i in table_for_search_drawing:
                             # количество строк в одной найденной таблице count_row_table[0][0]
                             count_row_table = cur.execute(
-                                'SELECT COUNT(*) FROM {} WHERE Drawing LIKE "%{}%"'.format(i,
-                                                                                           line_for_search)).fetchall()
+                                'SELECT COUNT(*) FROM {} WHERE Drawing LIKE "%{}%"'.format(i, line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_report:
                         # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
@@ -599,8 +588,7 @@ def search():
                     # + количество таблиц * 2 (кнопка номера репорта и строка названий столбцов) * 20 (высота одной
                     # строки) + 20 (высота первой строки с номером первого репорта) + количество таблиц * 20 (расстояние
                     # между таблицами в открытом виде
-                    w = sum_row_table * one_row + len(count_row_table_view) * 2 * 20 + 20 + len(
-                        count_row_table_view) * 20
+                    w = sum_row_table * one_row + len(count_row_table_view) * 2 * 20 + 20 + len(count_row_table_view) * 20
                     # помещаем frame в область с полосой прокрутки
                     scroll_area.setWidget(frame_for_table)
                     # задаём размер frame
@@ -640,15 +628,14 @@ def search():
                         # список минимальных значений толщин в каждом столбце
                         list_min_thickness_column = []
                         # определяем индекс Nominal_thickness, что искать минимальное значение после него
-                        global index_nom_thickn_name_column
-                        index_nom_thickn_name_column = name_column.index('Nominal_thickness')
+                        global index_nom_thickness_name_column
+                        index_nom_thickness_name_column = name_column.index('Nominal_thickness')
                         # формируем названия столбцов для поиска минимальной толщины без учета ненужных столбцов
-                        for ij in range(index_nom_thickn_name_column + 1, len(name_column)):
+                        for ij in range(index_nom_thickness_name_column + 1, len(name_column)):
                             name_column_for_min_thickness.append(name_column[ij])
                         # если название столбца не...
                         # for ii in name_column:
                         for ii in name_column_for_min_thickness:
-
                             if ii == 'Line' or ii == 'Item_description' or ii == 'Section' or ii == 'Location' \
                                     or ii == 'Remark' or ii == 'Size' or ii == 'Nominal_thickness' or ii == 'Diameter' \
                                     or ii == 'Drawing' or ii == 'P_ID' or ii == 'Date' or ii == 'Distance' \
@@ -669,9 +656,7 @@ def search():
                                     table_for_search_wo = []
                                 # переменная всех значений толщин в столбце при поиске по номеру линии
                                 if table_for_search_line:
-                                    thickness_column = \
-                                        cur.execute(
-                                            'SELECT {} from {}'.format(ii, table_for_search_line[i])).fetchall()
+                                    thickness_column = cur.execute('SELECT {} from {}'.format(ii, table_for_search_line[i])).fetchall()
                                     # выбираем только вещественные значения
                                     for iii in thickness_column:
                                         # проверка если в столбце нет значений, то дальше, иначе...
@@ -693,9 +678,7 @@ def search():
                                         list_min_thickness_column.append(min_thickness_column)
                                 # переменная всех значений толщин в столбце при поиске по номеру чертежа
                                 if table_for_search_drawing:
-                                    thickness_column = \
-                                        cur.execute(
-                                            'SELECT {} from {}'.format(ii, table_for_search_drawing[i])).fetchall()
+                                    thickness_column = cur.execute('SELECT {} from {}'.format(ii, table_for_search_drawing[i])).fetchall()
                                     # выбираем только вещественные значения
                                     for iii in thickness_column:
                                         # проверка если в столбце нет значений, то дальше, иначе...
@@ -717,9 +700,8 @@ def search():
                                         list_min_thickness_column.append(min_thickness_column)
                                 # переменная всех значений толщин в столбце при поиске по номеру репорта
                                 if table_for_search_report:
-                                    thickness_column = \
-                                        cur.execute(
-                                            'SELECT {} from {}'.format(ii, table_for_search_report[0][i][0])).fetchall()
+                                    thickness_column = cur.execute(
+                                        'SELECT {} from {}'.format(ii, table_for_search_report[0][i][0])).fetchall()
                                     # выбираем только вещественные значения
                                     for iii in thickness_column:
                                         # проверка если в столбце нет значений, то дальше, иначе...
@@ -741,9 +723,7 @@ def search():
                                         list_min_thickness_column.append(min_thickness_column)
                                 # переменная всех значений толщин в столбце при поиске по номеру work order
                                 if table_for_search_wo:
-                                    thickness_column = \
-                                        cur.execute(
-                                            'SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
+                                    thickness_column = cur.execute('SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
                                     # выбираем только вещественные значения
                                     for iii in thickness_column:
                                         # проверка если в столбце нет значений, то дальше, иначе...
@@ -765,8 +745,7 @@ def search():
                                         list_min_thickness_column.append(min_thickness_column)
                                 # закрываем соединение с базой данных
                                 cur.close()
-                        # после перебора всех допустимых столбцов выбираем минимальное значение
-                        # global list_min_thickness
+                        # после перебора всех допустимых столбцов выбираем минимальное значение global list_min_thickness
                         min_thickness = min(list_min_thickness_column)
                         list_min_thickness.append(min_thickness)
                         # высота одной таблицы tableView = количество строк в одной таблице * высоту одной строки +
@@ -780,9 +759,8 @@ def search():
                             # подключаемся в базе данных
                             cur = conn.cursor()
                             # переменная номера work order
-                            w_o = cur.execute(
-                                'SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
-                                    for_w_o)).fetchall()
+                            w_o = cur.execute('SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
+                                for_w_o)).fetchall()
                             # закрываем соединение
                             cur.close()
                             button_for_table = re.sub(r'_', '-', button_for_table)
@@ -800,8 +778,7 @@ def search():
                             cur = conn.cursor()
                             # переменная номера work order
                             w_o = cur.execute(
-                                'SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
-                                    for_w_o)).fetchall()
+                                'SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(for_w_o)).fetchall()
                             # закрываем соединение
                             cur.close()
                             button_for_table = re.sub(r'_', '-', button_for_table)
@@ -822,8 +799,7 @@ def search():
                             cur = conn.cursor()
                             # переменная номера work order
                             w_o = cur.execute(
-                                'SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
-                                    for_w_o)).fetchall()
+                                'SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(for_w_o)).fetchall()
                             # закрываем соединение
                             cur.close()
                             button_for_table = re.sub(r'_', '-', button_for_table)
@@ -843,8 +819,7 @@ def search():
                             # подключаемся в базе данных
                             cur = conn.cursor()
                             # переменная даты репорта
-                            date_report = cur.execute(
-                                'SELECT report_date FROM master WHERE work_order="{}"'.format(w_o)).fetchall()
+                            date_report = cur.execute('SELECT report_date FROM master WHERE work_order="{}"'.format(w_o)).fetchall()
                             # закрываем соединение
                             cur.close()
                             button_for_table = re.sub(r'_', '-', button_for_table)
@@ -906,16 +881,12 @@ def search():
                         # создаём запрос
                         # выводим данные в форму из найденных таблиц по номеру линии, чертежа или репорта
                         if len(table_for_search_line) > 0:
-                            sqm.setQuery(
-                                'SELECT * FROM {} WHERE Line LIKE "%{}%"'.format(table_for_search_line[i],
-                                                                                 line_for_search),
-                                db=QSqlDatabase('reports_db.sqlite'))
+                            sqm.setQuery('SELECT * FROM {} WHERE Line LIKE "%{}%"'.format(table_for_search_line[i], line_for_search),
+                                         db=QSqlDatabase('reports_db.sqlite'))
                         # выводим данные в форму из найденных таблиц по номеру чертежа в таблице
                         if len(table_for_search_drawing) > 0:
-                            sqm.setQuery(
-                                'SELECT * FROM {} WHERE Drawing LIKE "%{}%"'.format(table_for_search_drawing[i],
-                                                                                    line_for_search),
-                                db=QSqlDatabase('reports_db.sqlite'))
+                            sqm.setQuery('SELECT * FROM {} WHERE Drawing LIKE "%{}%"'.format(table_for_search_drawing[i], line_for_search),
+                                         db=QSqlDatabase('reports_db.sqlite'))
                         # выводим данные в форму из найденных таблиц по номеру репорта
                         if len(table_for_search_report) > 0:
                             if len(table_for_search_report[0]) > 0:
@@ -924,13 +895,11 @@ def search():
                         # выводим данные в форму из найденных таблиц по номеру word order
                         if len(table_for_search_wo) > 0:
                             if len(table_for_search_wo[0]) > 0:
-                                sqm.setQuery('SELECT * FROM {}'.format(table_for_search_wo[i][0][0]),
-                                             db=QSqlDatabase('reports_db.sqlite'))
+                                sqm.setQuery('SELECT * FROM {}'.format(table_for_search_wo[i][0][0]), db=QSqlDatabase('reports_db.sqlite'))
                         table_view[i].hide()
                         # обработка нажатия на кнопку с номером репорта в frame
                         button_for_table.clicked.connect(
-                            lambda: visible_table_view(x1, list_table_view, list_button_for_table, list_check_box,
-                                                       list_height_table_view))
+                            lambda: visible_table_view(x1, list_table_view, list_button_for_table, list_check_box, list_height_table_view))
                         # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
                         table_view[i].setCornerButtonEnabled(True)
                         # горизонтальная полоса прокрутки в пределах отображения одной таблицы
@@ -953,16 +922,14 @@ def search():
                             # создаём модель
                             color_nominal_thickness = ColorNominalThickness()
                             # окрашиваем столбец с номинальной толщиной в зелёный цвет
-                            table_view[i].setItemDelegateForColumn(number_column_nominal_thickness,
-                                                                   color_nominal_thickness)
+                            table_view[i].setItemDelegateForColumn(number_column_nominal_thickness, color_nominal_thickness)
                         # добавляем найденную модель с данными в список для возможной дальнейшей распечатки
                         list_sqm.append(sqm)
                         name_column_for_print.append(name_column)
                         list_name_sheet_for_print.append(second_underlining)
 
                     scroll_area.show()
-                    logger_with_user.info(
-                        'Произведён поиск данных по номеру {}. Данные найдены'.format(line_search.text()))
+                    logger_with_user.info('Произведён поиск данных по номеру {}. Данные найдены'.format(line_search.text()))
 
                 # сообщение о том, что ничего не найдено
                 else:
@@ -971,8 +938,7 @@ def search():
                         'Внимание',
                         'Ничего не найдено!'
                     )
-                    logger_with_user.info(
-                        'Произведён поиск данных по номеру {}. Данные НЕ найдены'.format(line_search.text()))
+                    logger_with_user.info('Произведён поиск данных по номеру {}. Данные НЕ найдены'.format(line_search.text()))
         con.close()
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
@@ -1066,14 +1032,26 @@ def visible_table_view(x1, l_t_v, l_b_t, l_ch_b, l_h_t_v):
 
 # нажатие на кнопку "Удалить"
 def delete_report():
+    # проверяем наличие областей tableView для вывода данных
+    # если есть, то закрываем их, чтобы не наслаивались
+    if window.findChildren(QTableView):
+        open_tableview = window.findChildren(QTableView)
+        for i in open_tableview:
+            i.hide()
+
     # список статусов флажков напротив репортов (установлен или не установлен флажок)
     check_uncheck_report_for_delete = []
     # список порядковых номеров репортов для удаления
     list_index_for_delete = []
     # порядковый номер репортов для удаления
     index_report_for_delete = 0
+
     for i in list_check_box:
-        check_uncheck_report_for_delete.append(i.checkState())
+        try:
+            check_uncheck_report_for_delete.append(i.checkState())
+        except RuntimeError:
+            continue
+
     # если статус "2", то номер репорта добавляем в список репортов на удаление
     for i in check_uncheck_report_for_delete:
         if i == 2:
@@ -1091,9 +1069,12 @@ def delete_report():
             # подключаемся в базе данных
             conn = sqlite3.connect('reports_db.sqlite')
             cur = conn.cursor()
+            # активатор отсутствия репорта в таблице master для обновления области вывода найденных данных после
+            # удаления всех таблиц из репорта
+            check_update_scroll_area = 0
             # если одна строка
             if type(list_table_for_delete_report) == str:
-                # и стоит флажок, то удаляем таблицу, т.к. она одна
+                # И стоит флажок, то удаляем таблицу, т.к. она одна
                 if list_index_for_delete:
                     # удаляем таблицу из базы данных
                     cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
@@ -1103,9 +1084,9 @@ def delete_report():
                 # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
                 if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
                         list_table_for_delete_report[-15:])).fetchone():
-                    cur.execute(
-                        'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
+                    cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
                     conn.commit()
+                    check_update_scroll_area += 1
                 logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report)
                 cur.close()
             # если список
@@ -1123,16 +1104,22 @@ def delete_report():
                     # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
                     if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
                             list_table_for_delete_report[i][-15:])).fetchone():
-                        cur.execute(
-                            'DELETE from master WHERE report_number LIKE "%{}%"'.format(
-                                list_table_for_delete_report[i][-15:]))
+                        cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[i][-15:]))
                         conn.commit()
+                        check_update_scroll_area += 1
                     logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[i])
                 cur.close()
             QMessageBox.information(window,
                                     'Внимание!',
                                     'Выбранные репорты удалены!')
-            search()
+            # Проверяем, остался ли такой репорт в master
+            # если активатор изменён, т.е. > 0 - такого репорта больше нет в master, то скрываем область для вывода
+            # найденных данных
+            if check_update_scroll_area > 0:
+                scroll_area.hide()
+            # Если активатор не изменён, т.е. = 0, то обновляем область для вывода найденных данных
+            elif check_update_scroll_area == 0:
+                search()
 
 
 # функция обновления столбцов 'one_of' и 'list_table_report' таблицы master при удалении таблиц из неё
@@ -1147,8 +1134,7 @@ def update_master_by_delete(l_t_f_d_r):
         if cur.execute('SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)):
             # получаем номера всех записанных таблиц в виде строки
             variable_report_for_delete_from_master = cur.execute(
-                'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(
-                    l_t_f_d_r)).fetchall()[0][0]
+                'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)).fetchall()[0][0]
             # получаем данные из колонки 'one_of'
             one_of_for_minus = cur.execute('SELECT one_of FROM master WHERE list_table_report LIKE "%{}%"'.format(
                 l_t_f_d_r)).fetchall()[0][0]
@@ -1164,21 +1150,18 @@ def update_master_by_delete(l_t_f_d_r):
 
             print(one_of_for_minus_new)
             # определяем номер репорта
-            variable = cur.execute(
-                'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(
-                    l_t_f_d_r)).fetchall()[0][0]
+            variable = cur.execute('SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(
+                l_t_f_d_r)).fetchall()[0][0]
             # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
             variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
                 '\'' + l_t_f_d_r + '\'', '')
             # удаляем в найденной строке лишние символы новой строки
-            variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n',
-                                                                                                            '\n')
+            variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
             # обновляем ячейку с номерами всех оставшихся таблиц 'list_table_report'
             cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
                 variable_report_for_delete_from_master_new, variable))
             # обновляем ячейку с количеством загруженных таблиц 'one_of'
-            cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(
-                one_of_for_minus_new, variable))
+            cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(one_of_for_minus_new, variable))
 
 
     elif type(l_t_f_d_r) == list:
@@ -1187,18 +1170,15 @@ def update_master_by_delete(l_t_f_d_r):
                     'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)):
                 # получаем номера всех записанных таблиц в виде строки
                 variable_report_for_delete_from_master = cur.execute(
-                    'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(
-                        i)).fetchall()[0][0]
+                    'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][0]
                 # определяем номер репорта
                 variable = cur.execute(
-                    'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][
-                    0]
+                    'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][0]
                 # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
                 variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
                     '\'' + i + '\'', '')
                 # удаляем в найденной строке лишние символы новой строки
-                variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n',
-                                                                                                                '\n')
+                variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
                 # обновляем ячейку с номерами всех оставшихся таблиц
                 cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
                     variable_report_for_delete_from_master_new, variable))
@@ -1256,8 +1236,8 @@ def statistic_master():
         # устанавливаем разный цвет фона для чётных и нечётных строк
         statistic.setAlternatingRowColors(True)
         statistic.setModel(sqm)
-        # создаём запрос
-        sqm.setQuery('SELECT * FROM master', db=QSqlDatabase('reports_db.sqlite'))
+        # создаём запрос и сортируем по номеру репорта
+        sqm.setQuery('SELECT * FROM master ORDER BY report_number', db=QSqlDatabase('reports_db.sqlite'))
         # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
         statistic.setCornerButtonEnabled(True)
         # горизонтальная полоса прокрутки в пределах отображения одной таблицы
@@ -1336,8 +1316,7 @@ def log_in():
             buttons=QMessageBox.Ok
         )
         logger_with_user.error(
-            'Попытка авторизоваться - Введён неверный логин "{}" или пароль "{}"'.format(line_login.text(),
-                                                                                         line_password.text()))
+            'Попытка авторизоваться - Введён неверный логин "{}" или пароль "{}"'.format(line_login.text(), line_password.text()))
 
 
 def log_out():
@@ -1412,15 +1391,13 @@ def print_table():
                     # выделяем её жирным
                     sheet_for_print.cell(row=2, column=collll + 1).font = Font(bold=True)
                     # центрируем запись внутри
-                    sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center',
-                                                                                         vertical='center')
+                    sheet_for_print.cell(row=2, column=collll + 1).alignment = Alignment(horizontal='center', vertical='center')
                     # закрепляем первую строку с названием кнопки, по которой выбрана таблица, и вторую с названиями
                     # столбцов
                     sheet_for_print.freeze_panes = "A3"
                     # выделяем её границами
                     thin = Side(border_style="thin", color="000000")
-                    sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin,
-                                                                                   bottom=thin)
+                    sheet_for_print.cell(row=2, column=collll + 1).border = Border(top=thin, left=thin, right=thin, bottom=thin)
                 ii = 2
                 # проходим по всем строка выборки
                 for row in range(c.rowCount()):
@@ -1436,8 +1413,7 @@ def print_table():
                         sheet_for_print.cell(row=ii, column=jj, value=str(c.data(ind)))
                         # выделяем основные данные границами
                         thin = Side(border_style="thin", color="000000")
-                        sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin,
-                                                                                bottom=thin)
+                        sheet_for_print.cell(row=ii, column=jj).border = Border(top=thin, left=thin, right=thin, bottom=thin)
                 # ручной автоподбор ширины столбцов по содержимому
                 ascii_range = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
                                'S', 'T', 'V', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI',
@@ -1447,17 +1423,15 @@ def print_table():
                     max_length_column = 0
                     # перебираем все заполненные строки
                     for roww in range(2, ii + 1):
-                        sheet_for_print.cell(row=roww, column=int(index_nom_thickn_name_column + 1)).fill = PatternFill(
+                        sheet_for_print.cell(row=roww, column=int(index_nom_thickness_name_column + 1)).fill = PatternFill(
                             fgColor="77dd77",
                             fill_type="solid")
                         if len(str(sheet_for_print.cell(row=roww, column=coll).value)) > max_length_column:
                             max_length_column = len(str(sheet_for_print.cell(row=roww, column=coll).value))
                         # закрашиваем ячейки с минимальной толщиной
                         try:
-                            if list_min_thickness[index_table_for_print] == float(
-                                    sheet_for_print.cell(row=roww, column=coll).value):
-                                sheet_for_print.cell(row=roww, column=coll).fill = PatternFill(fgColor="e34234",
-                                                                                               fill_type="solid")
+                            if list_min_thickness[index_table_for_print] == float(sheet_for_print.cell(row=roww, column=coll).value):
+                                sheet_for_print.cell(row=roww, column=coll).fill = PatternFill(fgColor="e34234", fill_type="solid")
                         except ValueError:
                             continue
 
