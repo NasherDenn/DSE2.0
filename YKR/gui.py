@@ -87,7 +87,7 @@ line_search.setEchoMode(QLineEdit.Normal)
 line_search.setCursorPosition(0)
 line_search.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search.setClearButtonEnabled(True)
-line_search.setText('04-YKR-ON-UTT-22-007')
+line_search.setText('28278087')
 line_search.setFocus()
 
 # создаём кнопку "Поиск"
@@ -437,7 +437,6 @@ def search():
                 open_tableview = window.findChildren(QTableView)
                 for i in open_tableview:
                     i.hide()
-
             # перебираем таблицы, которые попали в базу данных после очистки
             for i in con.tables():
                 # подключаемся в базе данных
@@ -502,14 +501,18 @@ def search():
             if depthCount(table_for_search_report) == 0:
                 table_for_search_report = [[]]
 
+            # если для поиска указан не номер work order
+            if depthCount(table_for_search_wo) == 0:
+                table_for_search_wo = [[]]
+
             # если найден номер линии или номер чертежа, или номер репорта, или номер work order, то показываем область
             # для таблицы с найденными данными
             if table_for_search_line or table_for_search_drawing or table_for_search_report or table_for_search_wo:
                 if len(table_for_search_line) + len(table_for_search_drawing) + len(
-                        table_for_search_report[0]) + len(table_for_search_wo) != 0:
+                        table_for_search_report[0]) + len(table_for_search_wo[0]) != 0:
                     # считаем количество найденных таблиц для вывода нужного количества tableView
                     count_table_view = len(table_for_search_line) + len(table_for_search_drawing) + len(
-                        table_for_search_report[0]) + len(table_for_search_wo)
+                        table_for_search_report[0]) + len(table_for_search_wo[0])
                     # список названий таблицы для переменной при создании tableView
                     table_view = ['one_table', 'two_table', 'three_table', 'four_table', 'five_table', 'six_table',
                                   'seven_table', 'eight_table', 'nine_table', 'ten_table', 'eleven_table',
@@ -540,8 +543,7 @@ def search():
                                  'forty_four_check_box', 'forty_five_check_box', 'forty_six_check_box',
                                  'forty_seven_check_box', 'forty_eight_check_box', 'forty_nine_check_box',
                                  'fifty_check_box']
-                    # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса
-                    # прокрутки
+                    # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса прокрутки
                     frame_for_table = QFrame()
                     # подключаемся в базе данных
                     cur = conn.cursor()
@@ -573,10 +575,12 @@ def search():
                             count_row_table_view.append(count_row_table[0][0])
                     if table_for_search_wo:
                         # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
-                        list_table_for_delete_report = table_for_search_wo[0][0][0]
-                        for i in table_for_search_wo:
-                            count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0][0])).fetchall()
+                        if table_for_search_wo[0]:
+                            list_table_for_delete_report = table_for_search_wo[0][0][0]
+                        for i in table_for_search_wo[0]:
+                            count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0])).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
+                            print(table_for_search_wo[0])
                     # закрываем соединение
                     cur.close()
                     # общее количество строк в найденных таблицах для длины frame
@@ -607,9 +611,14 @@ def search():
                     for i in range(count_table_view):
                         # список названий столбцов отсчитывая от 'Nominal_thickness
                         name_column_for_min_thickness = []
+
                         # определяем глубину вложенности списка заданного для поиска репорта
                         if depthCount(table_for_search_report) == 1:
                             table_for_search_report = []
+
+                        # определяем глубину вложенности списка заданного для поиска work order
+                        if depthCount(table_for_search_wo) == 1:
+                            table_for_search_wo = []
                         # подключаемся в базе данных
                         conn = sqlite3.connect('reports_db.sqlite')
                         cur = conn.cursor()
@@ -621,7 +630,7 @@ def search():
                         elif table_for_search_report:
                             reader = cur.execute("SELECT * FROM {}".format(table_for_search_report[0][i][0]))
                         elif table_for_search_wo:
-                            reader = cur.execute("SELECT * FROM {}".format(table_for_search_wo[i][0][0]))
+                            reader = cur.execute("SELECT * FROM {}".format(table_for_search_wo[0][i][0]))
                         # получаем список названий столбцов
                         name_column = [x[0] for x in reader.description]
                         cur.close()
@@ -724,7 +733,7 @@ def search():
                                         list_min_thickness_column.append(min_thickness_column)
                                 # переменная всех значений толщин в столбце при поиске по номеру work order
                                 if table_for_search_wo:
-                                    thickness_column = cur.execute('SELECT {} from {}'.format(ii, table_for_search_wo[i][0][0])).fetchall()
+                                    thickness_column = cur.execute('SELECT {} from {}'.format(ii, table_for_search_wo[0][i][0])).fetchall()
                                     # выбираем только вещественные значения
                                     for iii in thickness_column:
                                         # проверка если в столбце нет значений, то дальше, иначе...
@@ -814,7 +823,7 @@ def search():
                         if depthCount(table_for_search_wo) == 1:
                             table_for_search_wo = []
                         if table_for_search_wo:
-                            button_for_table = table_for_search_wo[i][0][0]
+                            button_for_table = table_for_search_wo[0][i][0]
                             # номер work order из строки для поиска
                             w_o = line_for_search
                             # подключаемся в базе данных
@@ -828,7 +837,7 @@ def search():
                             # название кнопки по номеру репорта
                             second_underlining = button_for_table[ind:]
                             # добавляем к названию кнопки дату и work order
-                            second_underlining = second_underlining + '     Date: ' + date_report[i][
+                            second_underlining = second_underlining + '     Date: ' + date_report[0][
                                 0] + '     WO: ' + w_o + '     min = ' + str(min_thickness) + '     UTT'
 
                         # задаём название кнопки по номеру репорта и помещаем внутрь frame
@@ -896,7 +905,8 @@ def search():
                         # выводим данные в форму из найденных таблиц по номеру word order
                         if len(table_for_search_wo) > 0:
                             if len(table_for_search_wo[0]) > 0:
-                                sqm.setQuery('SELECT * FROM {}'.format(table_for_search_wo[i][0][0]), db=QSqlDatabase('reports_db.sqlite'))
+                                sqm.setQuery('SELECT * FROM {}'.format(table_for_search_wo[0][i][0]), db=QSqlDatabase('reports_db.sqlite'))
+
                         table_view[i].hide()
                         # обработка нажатия на кнопку с номером репорта в frame
                         button_for_table.clicked.connect(
