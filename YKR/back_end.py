@@ -30,8 +30,8 @@ def add_table(name_dir):
     distract_structure = 0
     # список репортов с нарушением структуры
     list_distract_structure = []
-    # список таблиц, которые не должны быть записаны
-    dont_save_tables = []
+    # # список таблиц, которые не должны быть записаны
+    # dont_save_tables = []
     # список количества всего таблиц в файле
     all_table = []
     # список загруженного количества таблиц в репорте
@@ -45,6 +45,8 @@ def add_table(name_dir):
     # проверяем найденные репорты
     try:
         for unit_list_find_docx in list_find_docx:
+            # список таблиц, которые не должны быть записаны
+            dont_save_tables = []
             # работаем только если файл имеет допустимое имя, начинающееся с "04-YKR..."
             if re.findall(r'04-YKR', unit_list_find_docx):
                 doc = Document(unit_list_find_docx)
@@ -62,29 +64,41 @@ def add_table(name_dir):
                 pp = 0
                 # словарь номера репорта, даты репорта, номера Work Order
                 rep_number = {}
-                for i in data_header[0]:
-                    p = 0
-                    for ii in i:
-                        # если есть слово "Date" и любая цифра, то дата находится в этой же ячейке
-                        if re.match(r'Date', ii) and re.findall(r'\d', ii):
-                            rep_number['report_date'] = data_header[0][pp][p][-11:]
-                        elif re.match(r'Date', ii) and re.findall(r'\D', ii):
-                            rep_number['report_date'] = data_header[0][pp][p + 1]
-                        # если есть слово "Report" и любая цифра, то номер репорта находится в этой же ячейке
-                        if re.match(r'Report', ii) and re.findall(r'\d', ii):
-                            rep_number['report_number'] = data_header[0][pp][p][11:]
-                        elif re.match(r'Report', ii) and re.findall(r'\D', ii):
-                            rep_number['report_number'] = data_header[0][pp][p + 1]
-                        # если есть слово "Work" и любая цифра, то номер Work Order ордера находится в этой же ячейке
-                        if re.match(r'Work', ii) and re.findall(r'\d', ii):
-                            rep_number['work_order'] = data_header[0][pp][p][-8:]
-                        elif re.match(r'Work', ii) and re.findall(r'\D', ii):
-                            rep_number['work_order'] = data_header[0][pp][p + 1]
-                        p += 1
-                    pp += 1
-
+                # print(data_header)
+                try:
+                    for i in data_header[0]:
+                        p = 0
+                        for ii in i:
+                            try:
+                                # если есть слово "Date" и любая цифра, то дата находится в этой же ячейке
+                                if re.match(r'Date', ii) and re.findall(r'\d', ii):
+                                    rep_number['report_date'] = data_header[0][pp][p][-11:]
+                                elif re.match(r'Date', ii) and re.findall(r'\D', ii):
+                                    rep_number['report_date'] = data_header[0][pp][p + 1]
+                                # если есть слово "Report" и любая цифра, то номер репорта находится в этой же ячейке
+                                if re.match(r'Report', ii) and re.findall(r'\d', ii):
+                                    rep_number['report_number'] = data_header[0][pp][p][11:]
+                                elif re.match(r'Report', ii) and re.findall(r'\D', ii):
+                                    rep_number['report_number'] = data_header[0][pp][p + 1]
+                                # если есть слово "Work" и любая цифра, то номер Work Order ордера находится в этой же ячейке
+                                if re.match(r'Work', ii) and re.findall(r'\d', ii):
+                                    rep_number['work_order'] = data_header[0][pp][p][-8:]
+                                elif re.match(r'Work', ii) and re.findall(r'\D', ii):
+                                    rep_number['work_order'] = data_header[0][pp][p + 1]
+                                p += 1
+                            except IndexError as index_error:
+                                logger_with_user.error(index_error)
+                                continue
+                        pp += 1
+                except KeyError as key_error:
+                    logger_with_user.error(key_error)
+                    continue
                 # меняем '-' на '_' в названиях репортов в rep_number['report_number']
                 rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
+                # меняем ' ' на '_' в названиях репортов в rep_number['report_number']
+                rep_number['report_number'] = re.sub(' ', '_', rep_number['report_number'])
+                # меняем '.' на '_' в названиях репортов в rep_number['report_number']
+                rep_number['report_number'] = re.sub('\.', '_', rep_number['report_number'])
                 # добавляем в список номера репортов для статистики
                 list_load_report.append(rep_number['report_number'])
                 # извлекаем необходимые данные из репорта
@@ -104,8 +118,8 @@ def add_table(name_dir):
                             dont_save_tables.append(rep_number['report_number'])
                             logger_with_user.error(str(rep_number['report_number']))
                             logger_with_user.error(index_error)
-                            break
-
+                            # break
+                            continue
                 # словарь таблиц с необходимыми данными
                 clear_tables = {}
                 # счётчик порядкового номера (количество) таблиц с очищенными данными
@@ -212,8 +226,8 @@ def add_table(name_dir):
                         dont_save_tables.append(rep_number['report_number'])
                         logger_with_user.error(rep_number['report_number'])
                         logger_with_user.error(key_error)
-                        break
-
+                        # break
+                        continue
                 # словарь названия столбцов для каждой таблицы
                 name_column = {}
                 # список номеров колонок с названиями линий
@@ -455,7 +469,7 @@ def add_table(name_dir):
                     # перехватываем все исключения, которые не предусмотрены в коду выше и записываем их в LogFile
                     logger_with_user.error(str(rep_number['report_number']))
                     logger_with_user.error(traceback.format_exc())
-
+                    continue
                 for i in list(clear_table_bottom.keys()):
                     for ii in range(len(clear_table_bottom[i])):
                         for iii in range(len(clear_table_bottom[i][ii])):
@@ -560,15 +574,21 @@ def add_table(name_dir):
                                 # меняем "_" на "-"
                                 temp_line = re.sub('_', '-', temp_line)
                                 temp_drawing = re.sub('_', '-', temp_drawing)
-                                # убираем лишние "-" в начале и в конце
-                                while temp_line[0] == '-':
-                                    temp_line = temp_line[1:]
-                                while temp_drawing[0] == '-':
-                                    temp_drawing = temp_drawing[1:]
-                                while temp_drawing[-1:] == '-':
-                                    temp_drawing = temp_drawing[:-1]
-                                while temp_line[-1:] == '-':
-                                    temp_line = temp_line[:-1]
+                                try:
+                                    # убираем лишние "-" в начале и в конце
+                                    while temp_line[0] == '-':
+                                        temp_line = temp_line[1:]
+                                    while temp_drawing[0] == '-':
+                                        temp_drawing = temp_drawing[1:]
+                                    while temp_drawing[-1:] == '-':
+                                        temp_drawing = temp_drawing[:-1]
+                                    while temp_line[-1:] == '-':
+                                        temp_line = temp_line[:-1]
+                                except IndexError as index_error:
+                                    # перехватываем все исключения, которые не предусмотрены в коду выше и записываем их в LogFile
+                                    logger_with_user.error(str(rep_number['report_number']))
+                                    logger_with_user.error(index_error)
+                                    continue
                                 # добавляем в уникальный список значений строк номер линии
                                 unique_value_table.insert(0, temp_line)
                                 list_index_remove.insert(0, i)
@@ -598,17 +618,23 @@ def add_table(name_dir):
                 if unique_name_column:
                     j = 0
                     name_column = {}
-                    for i in set(list_index_remove):
-                        name_column[i] = []
-                    for i in list_index_remove:
-                        name_column[i].append(unique_name_column[j])
-                        j += 1
-                    for i in name_column.keys():
-                        for ii in clear_table_bottom[i][0]:
-                            name_column[i].append(ii)
-                    for i in clear_table_bottom.keys():
-                        # удаляем из таблиц clear_table_bottom старые названия столбцов
-                        clear_table_bottom[i].pop(0)
+                    try:
+                        for i in set(list_index_remove):
+                            name_column[i] = []
+                        for i in list_index_remove:
+                            name_column[i].append(unique_name_column[j])
+                            j += 1
+                        for i in name_column.keys():
+                            for ii in clear_table_bottom[i][0]:
+                                name_column[i].append(ii)
+                        for i in clear_table_bottom.keys():
+                            # удаляем из таблиц clear_table_bottom старые названия столбцов
+                            clear_table_bottom[i].pop(0)
+                    except IndexError as index_error:
+                        # перехватываем все исключения, которые не предусмотрены в коду выше и записываем их в LogFile
+                        logger_with_user.error(str(rep_number['report_number']))
+                        logger_with_user.error(index_error)
+                        continue
                     # приводим названия столбцов к допустимым
                     for i in name_column.keys():
                         for ii in range(len(name_column[i])):
@@ -812,12 +838,18 @@ def add_table(name_dir):
                                 name_column[i].remove(name_column[i][ii])
                                 # вставляем на удалённое место допустимое название столбца
                                 name_column[i].insert(ii, b)
-                            if name_column[i][ii][0].isnumeric():
-                                b = '_' + name_column[i][ii] + '_'
-                                # удаляем найденное значение
-                                name_column[i].remove(name_column[i][ii])
-                                # вставляем на удалённое место допустимое название столбца
-                                name_column[i].insert(ii, b)
+                            try:
+                                if name_column[i][ii][0].isnumeric():
+                                    b = '_' + name_column[i][ii] + '_'
+                                    # удаляем найденное значение
+                                    name_column[i].remove(name_column[i][ii])
+                                    # вставляем на удалённое место допустимое название столбца
+                                    name_column[i].insert(ii, b)
+                            except IndexError as index_error:
+                                logger_with_user.error(str(rep_number['report_number']))
+                                logger_with_user.error(index_error)
+                                # break
+                                continue
                             if re.findall(r'\d+-\d+', name_column[i][ii]):
                                 # меняем найденное значение
                                 b = '_' + re.sub('-', '_', name_column[i][ii]) + '_'
@@ -841,51 +873,55 @@ def add_table(name_dir):
                     i_9 = 0
                     i_10 = 0
                     for i in range(len(list_index_remove)):
-                        if list_index_remove[i] == 0:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_0, unique_value_table[i])
-                            i_0 += 1
-                        if list_index_remove[i] == 1:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_1, unique_value_table[i])
-                            i_1 += 1
-                        if list_index_remove[i] == 2:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_2, unique_value_table[i])
-                            i_2 += 1
-                        if list_index_remove[i] == 3:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_3, unique_value_table[i])
-                            i_3 += 1
-                        if list_index_remove[i] == 4:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_4, unique_value_table[i])
-                            i_4 += 1
-                        if list_index_remove[i] == 5:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_5, unique_value_table[i])
-                            i_5 += 1
-                        if list_index_remove[i] == 6:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_6, unique_value_table[i])
-                            i_6 += 1
-                        if list_index_remove[i] == 7:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_7, unique_value_table[i])
-                            i_7 += 1
-                        if list_index_remove[i] == 8:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_8, unique_value_table[i])
-                            i_8 += 1
-                        if list_index_remove[i] == 9:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_9, unique_value_table[i])
-                            i_9 += 1
-                        if list_index_remove[i] == 10:
-                            for ii in clear_table_bottom[list_index_remove[i]]:
-                                ii.insert(i_10, unique_value_table[i])
-                            i_10 += 1
-
+                        try:
+                            if list_index_remove[i] == 0:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_0, unique_value_table[i])
+                                i_0 += 1
+                            if list_index_remove[i] == 1:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_1, unique_value_table[i])
+                                i_1 += 1
+                            if list_index_remove[i] == 2:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_2, unique_value_table[i])
+                                i_2 += 1
+                            if list_index_remove[i] == 3:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_3, unique_value_table[i])
+                                i_3 += 1
+                            if list_index_remove[i] == 4:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_4, unique_value_table[i])
+                                i_4 += 1
+                            if list_index_remove[i] == 5:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_5, unique_value_table[i])
+                                i_5 += 1
+                            if list_index_remove[i] == 6:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_6, unique_value_table[i])
+                                i_6 += 1
+                            if list_index_remove[i] == 7:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_7, unique_value_table[i])
+                                i_7 += 1
+                            if list_index_remove[i] == 8:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_8, unique_value_table[i])
+                                i_8 += 1
+                            if list_index_remove[i] == 9:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_9, unique_value_table[i])
+                                i_9 += 1
+                            if list_index_remove[i] == 10:
+                                for ii in clear_table_bottom[list_index_remove[i]]:
+                                    ii.insert(i_10, unique_value_table[i])
+                                i_10 += 1
+                        except IndexError as index_error:
+                            logger_with_user.error(str(rep_number['report_number']))
+                            logger_with_user.error(index_error)
+                            continue
                 # активатор отсутствия Line в основной таблице
                 sh_line = 0
                 # проверяем каждую таблицу на наличие столбца Line, если его нет, то ищем колонку в головной
@@ -1047,54 +1083,74 @@ def add_table(name_dir):
                     li_rep.append(list_add_table)
                 else:
                     li_rep.append(0)
+
+
+                print(dont_save_tables)
+                print(str_add_table)
+
+                stop_wright = True
                 # если статус активатора НЕ изменён (такой репорт еще не занесён в базу данных)
                 if check_report_number == 0:
                     # вносим данные из rep_number в таблицу master
                     if not check_amount_reports == 0:
-                        cur.execute(
-                            'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
-                                                                          rep_number['report_date'],
-                                                                          rep_number['work_order'],
-                                                                          str(check_amount_reports) + '/' + str(
-                                                                              len(clear_table_bottom.keys())),
-                                                                          str_add_table))
-                        conn.commit()
+                        for k in dont_save_tables:
+                            if str_add_table == k:
+                                stop_wright = False
+                        if stop_wright:
+                            cur.execute(
+                                'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
+                                                                              rep_number['report_date'],
+                                                                              rep_number['work_order'],
+                                                                              str(check_amount_reports) + '/' + str(
+                                                                                  len(clear_table_bottom.keys())),
+                                                                              str_add_table))
+                            conn.commit()
 
                 # если статус активатора изменён (такой репорт уже есть в базе данных)
                 if check_report_number > 0:
-                    # то находим этот репорт и получаем данные из столбца 'one_of' и 'list_table_report'
-                    # получаем номера всех записанных таблиц в виде строки
-                    variable_for_add_table_for_master = cur.execute(
-                        'SELECT list_table_report FROM master WHERE report_number = "{}"'.format(
-                            rep_number['report_number'])).fetchall()[0][0]
-                    # получаем данные из колонки 'one_of'
-                    one_of_for_plus = cur.execute('SELECT one_of FROM master WHERE report_number = "{}"'.format(
-                        rep_number['report_number'])).fetchall()[0][0]
-                    # добавляем в список таблиц новую
-                    variable_for_add_table_for_master_new = variable_for_add_table_for_master + str_add_table
-                    # получаем индекс '/' в строке one_of
-                    index_of_slash = one_of_for_plus.index('/')
-                    # получаем первое число перед знаком '/' и преобразуем его в число
-                    number_load_report_for_plus = int(one_of_for_plus[:index_of_slash])
-                    # увеличиваем количество загруженных репортов на один и преобразуем обратно в строку
-                    number_load_report_for_plus_new = str(number_load_report_for_plus + check_amount_reports)
-                    # формируем новое значение 'one_of' для обновления
-                    one_of_for_plus_new = number_load_report_for_plus_new + one_of_for_plus[index_of_slash:]
-                    # обновляем ячейку с номерами вновь добавленных таблиц 'list_table_report'
-                    cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
-                        variable_for_add_table_for_master_new, rep_number['report_number']))
-                    # обновляем ячейку с количеством загруженных таблиц 'one_of'
-                    cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(
-                        one_of_for_plus_new, rep_number['report_number']))
-                    conn.commit()
+                    for k in dont_save_tables:
+                        if str_add_table == k:
+                            stop_wright = False
+                    if stop_wright:
+                        try:
+                            # то находим этот репорт и получаем данные из столбца 'one_of' и 'list_table_report'
+                            # получаем номера всех записанных таблиц в виде строки
+                            variable_for_add_table_for_master = cur.execute(
+                                'SELECT list_table_report FROM master WHERE report_number = "{}"'.format(
+                                    rep_number['report_number'])).fetchall()[0][0]
+                            # получаем данные из колонки 'one_of'
+                            one_of_for_plus = cur.execute('SELECT one_of FROM master WHERE report_number = "{}"'.format(
+                                rep_number['report_number'])).fetchall()[0][0]
+                            # добавляем в список таблиц новую
+                            variable_for_add_table_for_master_new = variable_for_add_table_for_master + str_add_table
+                            # получаем индекс '/' в строке one_of
+                            index_of_slash = one_of_for_plus.index('/')
+                            # получаем первое число перед знаком '/' и преобразуем его в число
+                            number_load_report_for_plus = int(one_of_for_plus[:index_of_slash])
+                            # увеличиваем количество загруженных репортов на один и преобразуем обратно в строку
+                            number_load_report_for_plus_new = str(number_load_report_for_plus + check_amount_reports)
+                            # формируем новое значение 'one_of' для обновления
+                            one_of_for_plus_new = number_load_report_for_plus_new + one_of_for_plus[index_of_slash:]
+                            # обновляем ячейку с номерами вновь добавленных таблиц 'list_table_report'
+                            cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+                                variable_for_add_table_for_master_new, rep_number['report_number']))
+                            # обновляем ячейку с количеством загруженных таблиц 'one_of'
+                            cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(
+                                one_of_for_plus_new, rep_number['report_number']))
+                            conn.commit()
+                        except IndexError as index_error:
+                            logger_with_user.error(str(rep_number['report_number']))
+                            logger_with_user.error(index_error)
                 logger_with_user.info('Добавление новых репортов в базу данных: ' + rep_number['report_number'])
                 # закрываем соединение с базой данной
                 conn.close()
-        loading_report(len(list_find_docx), list_load_report, load_table, all_table, li_rep)
+        # loading_report(len(list_find_docx), list_load_report, load_table, all_table, li_rep)
     except Exception:
         # перехватываем все исключения, которые не предусмотрены в коду выше и записываем их в LogFile
-        logger_with_user.error(str(rep_number['report_number']))
+        # if rep_number['report_number']:
+        #     logger_with_user.error(str(rep_number['report_number']))
         logger_with_user.error(traceback.format_exc())
+
 
 
 # len_list_find_docx = len(list_find_docx) = количество загружаемых файлов xlsx
