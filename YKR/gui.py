@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import QSqlDatabase
-from PyQt5.QtSql import QSqlQueryModel
+from PyQt5.QtSql import QSqlQueryModel, QSqlTableModel
 from back_end import *
 from gui_create_report import *
 import logging
@@ -13,10 +13,11 @@ import os
 import threading
 import openpyxl
 from openpyxl.styles import Border, Side, PatternFill
+import sys
 
 # переменные списков найденных таблиц для вывода, которые будут изменены через global, для дальнейшего удаления в
 # функции delete_report
-list_table_for_delete_report = ''
+list_table_for_delete_report = []
 
 # список флажков для выбора репортов
 list_check_box = []
@@ -441,8 +442,10 @@ def search():
             for i in con.tables():
                 # подключаемся в базе данных
                 conn = sqlite3.connect('reports_db.sqlite')
+                # conn.isolation_level = None
                 cur = conn.cursor()
                 # перебираем список названий столбцов в таблице
+                print(i)
                 for k in cur.execute('SELECT * FROM {}'.format(i)).description:
                     # если 'Line' есть в названии столбца
                     if 'Line' in k:
@@ -463,6 +466,7 @@ def search():
                 # перебираем sqlite_master в поиске репорта
                 # подключаемся в базе данных
                 conn = sqlite3.connect('reports_db.sqlite')
+                # conn.isolation_level = None
                 cur = conn.cursor()
                 # меняем '-' на '_'
                 line_for_search_report = re.sub('-', '_', line_for_search)
@@ -477,6 +481,7 @@ def search():
                 # перебираем master в поиске work order
                 # подключаемся в базе данных
                 conn = sqlite3.connect('reports_db.sqlite')
+                # conn.isolation_level = None
                 cur = conn.cursor()
                 # если нашли work order в master
                 if cur.execute('SELECT report_number FROM master WHERE work_order="{}"'.format(line_for_search)):
@@ -545,44 +550,68 @@ def search():
                                  'fifty_check_box']
                     # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса прокрутки
                     frame_for_table = QFrame()
-                    # подключаемся в базе данных
-                    cur = conn.cursor()
+
                     # список количества строк в каждой найденной таблице
                     count_row_table_view = []
                     global list_table_for_delete_report
+                    list_table_for_delete_report = []
                     if table_for_search_line:
+                        # подключаемся в базе данных
+                        conn = sqlite3.connect('reports_db.sqlite')
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
                         # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
-                        list_table_for_delete_report = table_for_search_line
+                        # list_table_for_delete_report = table_for_search_line
+                        list_table_for_delete_report.append(table_for_search_line)
+
                         for i in table_for_search_line:
                             # количество строк в одной найденной таблице count_row_table_view[0][0]
                             count_row_table = cur.execute(
                                 'SELECT COUNT(*) FROM {} WHERE Line LIKE "%{}%"'.format(i, line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
+                        cur.close()
                     if table_for_search_drawing:
+                        # подключаемся в базе данных
+                        conn = sqlite3.connect('reports_db.sqlite')
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
                         # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
-                        list_table_for_delete_report = table_for_search_drawing
+                        # list_table_for_delete_report = table_for_search_drawing
+                        list_table_for_delete_report.append(table_for_search_drawing)
                         for i in table_for_search_drawing:
                             # количество строк в одной найденной таблице count_row_table[0][0]
                             count_row_table = cur.execute(
                                 'SELECT COUNT(*) FROM {} WHERE Drawing LIKE "%{}%"'.format(i, line_for_search)).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
+                        cur.close()
                     if table_for_search_report:
+                        # подключаемся в базе данных
+                        conn = sqlite3.connect('reports_db.sqlite')
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
                         # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
                         if table_for_search_report[0]:
-                            list_table_for_delete_report = table_for_search_report[0][0][0]
+                            # list_table_for_delete_report = table_for_search_report[0][0][0]
+                            list_table_for_delete_report.append(table_for_search_report[0])
                         for i in table_for_search_report[0]:
                             count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0])).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
+                        cur.close()
                     if table_for_search_wo:
+                        # подключаемся в базе данных
+                        conn = sqlite3.connect('reports_db.sqlite')
+                        # подключаемся в базе данных
+                        cur = conn.cursor()
                         # изменяем первоначальную переменную на список таблиц для дальнейшего удаления
                         if table_for_search_wo[0]:
-                            list_table_for_delete_report = table_for_search_wo[0][0][0]
+                            # list_table_for_delete_report = table_for_search_wo[0][0][0]
+                            list_table_for_delete_report.append(table_for_search_wo[0])
                         for i in table_for_search_wo[0]:
                             count_row_table = cur.execute('SELECT COUNT(*) FROM {}'.format(i[0])).fetchall()
                             count_row_table_view.append(count_row_table[0][0])
-                            print(table_for_search_wo[0])
+                        cur.close()
                     # закрываем соединение
-                    cur.close()
+                    # cur.close()
                     # общее количество строк в найденных таблицах для длины frame
                     sum_row_table = 0
                     for i in count_row_table_view:
@@ -621,6 +650,7 @@ def search():
                             table_for_search_wo = []
                         # подключаемся в базе данных
                         conn = sqlite3.connect('reports_db.sqlite')
+                        # conn.isolation_level = None
                         cur = conn.cursor()
                         # перебираем таблицы и извлекаем данные
                         if table_for_search_line:
@@ -655,6 +685,7 @@ def search():
                             else:
                                 # подключаемся в базе данных
                                 conn = sqlite3.connect('reports_db.sqlite')
+                                # conn.isolation_level = None
                                 cur = conn.cursor()
                                 # список только вещественных чисел значений толщин в столбце
                                 list_thickness_column = []
@@ -767,6 +798,10 @@ def search():
                             # переменная для поиска даты и work order репорта в таблице master
                             for_w_o = button_for_table[(button_for_table.index('_04') + 1):]
                             # подключаемся в базе данных
+                            conn = sqlite3.connect('reports_db.sqlite')
+                            # conn.isolation_level = None
+                            # cur = conn.cursor()
+                            # подключаемся в базе данных
                             cur = conn.cursor()
                             # переменная номера work order
                             w_o = cur.execute('SELECT report_date, work_order FROM master WHERE report_number="{}"'.format(
@@ -778,12 +813,17 @@ def search():
                             # название кнопки по номеру репорта
                             second_underlining = button_for_table[ind:]
                             # добавляем к названию кнопки дату и work order
+                            print(w_o)
                             second_underlining = second_underlining + '     Date: ' + w_o[0][0] + '     WO: ' + w_o[0][
                                 1] + '     min = ' + str(min_thickness) + '     UTT'
                         if table_for_search_drawing:
                             button_for_table = table_for_search_drawing[i]
                             # переменная для поиска даты и work order репорта в таблице master
                             for_w_o = button_for_table[(button_for_table.index('_04') + 1):]
+                            # подключаемся в базе данных
+                            conn = sqlite3.connect('reports_db.sqlite')
+                            # conn.isolation_level = None
+                            # cur = conn.cursor()
                             # подключаемся в базе данных
                             cur = conn.cursor()
                             # переменная номера work order
@@ -806,6 +846,8 @@ def search():
                             # переменная для поиска даты и work order репорта в таблице master
                             for_w_o = button_for_table[(button_for_table.index('_04') + 1):]
                             # подключаемся в базе данных
+                            conn = sqlite3.connect('reports_db.sqlite')
+                            # подключаемся в базе данных
                             cur = conn.cursor()
                             # переменная номера work order
                             w_o = cur.execute(
@@ -826,6 +868,8 @@ def search():
                             button_for_table = table_for_search_wo[0][i][0]
                             # номер work order из строки для поиска
                             w_o = line_for_search
+                            # подключаемся в базе данных
+                            conn = sqlite3.connect('reports_db.sqlite')
                             # подключаемся в базе данных
                             cur = conn.cursor()
                             # переменная даты репорта
@@ -888,7 +932,8 @@ def search():
                         # устанавливаем разный цвет фона для чётных и нечётных строк
                         table_view[i].setAlternatingRowColors(True)
                         table_view[i].setModel(sqm)
-                        # создаём запрос
+                        # создаём запрос и подключаемся в базе данных
+                        # conn = sqlite3.connect('reports_db.sqlite')
                         # выводим данные в форму из найденных таблиц по номеру линии, чертежа или репорта
                         if len(table_for_search_line) > 0:
                             sqm.setQuery('SELECT * FROM {} WHERE Line LIKE "%{}%"'.format(table_for_search_line[i], line_for_search),
@@ -950,7 +995,7 @@ def search():
                         'Ничего не найдено!'
                     )
                     logger_with_user.info('Произведён поиск данных по номеру {}. Данные НЕ найдены'.format(line_search.text()))
-        con.close()
+        # con.close()
     # сообщение об ошибке, если в поле для поиска ничего не введено
     else:
         QMessageBox.information(
@@ -1056,7 +1101,6 @@ def delete_report():
     list_index_for_delete = []
     # порядковый номер репортов для удаления
     index_report_for_delete = 0
-
     for i in list_check_box:
         try:
             check_uncheck_report_for_delete.append(i.checkState())
@@ -1077,55 +1121,62 @@ def delete_report():
         question_delete.setText('Вы уверены, что хотите удалить данные репорты?')
         # если нажата кнопка "Да", то
         if question_delete.exec() == QMessageBox.Yes:
-            # подключаемся в базе данных
-            conn = sqlite3.connect('reports_db.sqlite')
-            cur = conn.cursor()
             # активатор отсутствия репорта в таблице master для обновления области вывода найденных данных после
             # удаления всех таблиц из репорта
             check_update_scroll_area = 0
-            # если одна строка
-            if type(list_table_for_delete_report) == str:
-                # И стоит флажок, то удаляем таблицу, т.к. она одна
-                if list_index_for_delete:
-                    # удаляем таблицу из базы данных
-                    cur.execute('DROP TABLE {}'.format(list_table_for_delete_report))
-                    # обновляем данные в таблице master по удалённым таблицам
-                    update_master_by_delete(list_table_for_delete_report)
-
-                # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
-                if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
-                        list_table_for_delete_report[-15:])).fetchone():
-                    cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[-15:]))
-                    conn.commit()
-                    check_update_scroll_area += 1
-                logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report)
-                cur.close()
-            # если список
-            if type(list_table_for_delete_report) == list:
-                # и стоит флажок
-                if list_index_for_delete:
-                    # то выбираем для удаления таблицу по номеру индекса (list_index_for_delete)
-                    # в list_table_for_delete_report
-                    for i in list_index_for_delete:
-                        # удаляем таблицу из базы данных
-                        cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[i]))
-                        # обновляем данные в таблице master по удалённым таблицам
-                        update_master_by_delete(list_table_for_delete_report)
-
-                    # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
-                    if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
-                            list_table_for_delete_report[i][-15:])).fetchone():
-                        cur.execute('DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[i][-15:]))
+            if list_index_for_delete:
+                # то выбираем для удаления таблицу по номеру индекса (list_index_for_delete) в list_table_for_delete_report
+                for i in list_index_for_delete:
+                    if type(list_table_for_delete_report[0][i][0]) == str and type(list_table_for_delete_report[0][i]) == tuple:
+                        # подключаемся в базе данных
+                        conn = sqlite3.connect('reports_db.sqlite')
+                        # conn.isolation_level = None
+                        cur = conn.cursor()
+                        cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[0][i][0]))
                         conn.commit()
-                        check_update_scroll_area += 1
-                    logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[i])
-                cur.close()
+                        # обновляем данные в таблице master по удалённым таблицам update_master_by_delete(list_table_for_delete_report)
+                        # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
+                        if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
+                                list_table_for_delete_report[0][i][0][-15:])).fetchone():
+                            cur.execute(
+                                'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[0][i][0][-15:]))
+                            conn.commit()
+                            # cur.close()
+                            check_update_scroll_area += 1
+                        cur.close()
+                        if check_update_scroll_area == 0:
+                            # обновляем данные в таблице master по удалённым таблицам
+                            update_master_by_delete(list_table_for_delete_report[0][i][0])
+
+                        logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[0][i][0])
+                    if type(list_table_for_delete_report[0][i][0]) == str and type(list_table_for_delete_report[0][i]) == str:
+                        # подключаемся в базе данных
+                        conn = sqlite3.connect('reports_db.sqlite')
+                        # conn.isolation_level = None
+                        cur = conn.cursor()
+                        cur.execute('DROP TABLE {}'.format(list_table_for_delete_report[0][i]))
+                        conn.commit()
+                        # обновляем данные в таблице master по удалённым таблицам update_master_by_delete(list_table_for_delete_report)
+                        # если ни одного репорта нет в sqlite_master, то удаляем номер репорта из master
+                        if not cur.execute('SELECT * FROM sqlite_master WHERE  name LIKE "%{}%"'.format(
+                                list_table_for_delete_report[0][i][-15:])).fetchone():
+                            cur.execute(
+                                'DELETE from master WHERE report_number LIKE "%{}%"'.format(list_table_for_delete_report[0][i][-15:]))
+                            conn.commit()
+                            # cur.close()
+                            check_update_scroll_area += 1
+                        cur.close()
+                        if check_update_scroll_area == 0:
+                            # обновляем данные в таблице master по удалённым таблицам
+                            update_master_by_delete(list_table_for_delete_report[0][i])
+
+                        logger_with_user.warning('БЫЛА УДАЛЕНА ТАБЛИЦА ' + list_table_for_delete_report[0][i])
+            # cur.close()
             QMessageBox.information(window,
                                     'Внимание!',
                                     'Выбранные репорты удалены!')
             # Проверяем, остался ли такой репорт в master
-            # если активатор изменён, т.е. > 0 - такого репорта больше нет в master, то скрываем область для вывода
-            # найденных данных
+            # если активатор изменён, т.е. > 0 - такого репорта больше нет в master, то скрываем область для вывода найденных данных
             if check_update_scroll_area > 0:
                 scroll_area.hide()
             # Если активатор не изменён, т.е. = 0, то обновляем область для вывода найденных данных
@@ -1138,64 +1189,80 @@ def delete_report():
 def update_master_by_delete(l_t_f_d_r):
     # подключаемся в базе данных
     conn = sqlite3.connect('reports_db.sqlite')
+    # conn.isolation_level = None
     cur = conn.cursor()
-    # перебираем таблицы для удаления
-    print(type(l_t_f_d_r))
-    if type(l_t_f_d_r) == str:
-        if cur.execute('SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)):
-            # получаем номера всех записанных таблиц в виде строки
-            variable_report_for_delete_from_master = cur.execute(
-                'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)).fetchall()[0][0]
-            # получаем данные из колонки 'one_of'
-            one_of_for_minus = cur.execute('SELECT one_of FROM master WHERE list_table_report LIKE "%{}%"'.format(
-                l_t_f_d_r)).fetchall()[0][0]
+    # получаем номера всех записанных таблиц в виде строки
+    variable_report_for_delete_from_master = cur.execute(
+        'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)).fetchall()[0][0]
+    # print(variable_report_for_delete_from_master)
+    # определяем номер репорта для удаления
+    variable = cur.execute('SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)).fetchall()[0][0]
+    # print(variable)
+    # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
+    variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace('\'' + l_t_f_d_r + '\'', '')
+    # print(variable_report_for_delete_from_master_new)
+    # удаляем в найденной строке лишние символы новой строки
+    variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
 
-            # получаем индекс '/' в строке on_of
-            index_of_slash = one_of_for_minus.index('/')
-            # получаем первое число перед знаком '/' и преобразуем его в число
-            number_load_report_for_minus = int(one_of_for_minus[:index_of_slash])
-            # уменьшаем количество загруженных репортов на один и преобразуем обратно в строку
-            number_load_report_for_minus_new = str(number_load_report_for_minus - 1)
-            # формируем новое значение 'one_of' для обновления
-            one_of_for_minus_new = number_load_report_for_minus_new + one_of_for_minus[index_of_slash:]
-
-            print(one_of_for_minus_new)
-            # определяем номер репорта
-            variable = cur.execute('SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(
-                l_t_f_d_r)).fetchall()[0][0]
-            # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
-            variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
-                '\'' + l_t_f_d_r + '\'', '')
-            # удаляем в найденной строке лишние символы новой строки
-            variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
-            # обновляем ячейку с номерами всех оставшихся таблиц 'list_table_report'
-            cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
-                variable_report_for_delete_from_master_new, variable))
-            # обновляем ячейку с количеством загруженных таблиц 'one_of'
-            cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(one_of_for_minus_new, variable))
-
-
-    elif type(l_t_f_d_r) == list:
-        for i in l_t_f_d_r:
-            if cur.execute(
-                    'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)):
-                # получаем номера всех записанных таблиц в виде строки
-                variable_report_for_delete_from_master = cur.execute(
-                    'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][0]
-                # определяем номер репорта
-                variable = cur.execute(
-                    'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][0]
-                # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
-                variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
-                    '\'' + i + '\'', '')
-                # удаляем в найденной строке лишние символы новой строки
-                variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
-                # обновляем ячейку с номерами всех оставшихся таблиц
-                cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
-                    variable_report_for_delete_from_master_new, variable))
+    # conn.commit()
+    # получаем количество репортов в столбце 'one_of'
+    # print(l_t_f_d_r)
+    one_of_column = cur.execute(
+        'SELECT one_of FROM master WHERE list_table_report LIKE "%{}%"'.format(l_t_f_d_r)).fetchall()[0][0]
+    # print(one_of_column)
+    # получаем номер позиции символа '/'
+    index_one_of_load = one_of_column.index('/')
+    # уменьшаем на 1 количество записанных таблиц в столбце 'one_of'
+    one_of_load_new = str(int(one_of_column[:index_one_of_load]) - 1)
+    # определяем новое значение 'one_of'
+    one_of_new = one_of_load_new + str(one_of_column[index_one_of_load:])
+    # обновляем ячейку с количеством записанных таблиц
+    cur.execute('UPDATE master SET one_of = "{}" WHERE report_number = "{}"'.format(
+        one_of_new, variable))
+    # обновляем ячейку с номерами всех оставшихся таблиц
 
     conn.commit()
+    cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+        variable_report_for_delete_from_master_new, variable))
+    conn.commit()
     cur.close()
+    # if cur.execute(
+    #     'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i[0])):
+    #     # получаем номера всех записанных таблиц в виде строки
+    #     variable_report_for_delete_from_master = cur.execute(
+    #         'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i[0])).fetchall()[0][0]
+    #     # определяем номер репорта
+    #     variable = cur.execute(
+    #         'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(i[0])).fetchall()[0][0]
+    #     # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
+    #     variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
+    #         '\'' + i[0] + '\'', '')
+    #     # удаляем в найденной строке лишние символы новой строки
+    #     variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
+    #     # обновляем ячейку с номерами всех оставшихся таблиц
+    #     cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+    #         variable_report_for_delete_from_master_new, variable))
+    #     conn.commit()
+
+    # elif type(l_t_f_d_r) == list:
+    # for i in l_t_f_d_r:
+    #     if cur.execute(
+    #             'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)):
+    #         # получаем номера всех записанных таблиц в виде строки
+    #         variable_report_for_delete_from_master = cur.execute(
+    #             'SELECT list_table_report FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][0]
+    #         # определяем номер репорта
+    #         variable = cur.execute(
+    #             'SELECT report_number FROM master WHERE list_table_report LIKE "%{}%"'.format(i)).fetchall()[0][0]
+    #         # удаляем в найденной строке, с номерами всех записанных таблиц, выбранную таблицу
+    #         variable_report_for_delete_from_master_new = variable_report_for_delete_from_master.replace(
+    #             '\'' + i + '\'', '')
+    #         # удаляем в найденной строке лишние символы новой строки
+    #         variable_report_for_delete_from_master_new = variable_report_for_delete_from_master_new.replace('\n\n', '\n')
+    #         # обновляем ячейку с номерами всех оставшихся таблиц
+    #         cur.execute('UPDATE master SET list_table_report = "{}" WHERE report_number = "{}"'.format(
+    #             variable_report_for_delete_from_master_new, variable))
+    #
 
 
 # нажатие на кнопку "Сформировать отчёт"
@@ -1227,7 +1294,7 @@ def statistic_master():
         # подключаемся в базе данных
         conn = sqlite3.connect('reports_db.sqlite')
         cur = conn.cursor()
-        w = 10000
+        w = 100000
         frame_for_statistic = QFrame()
         # помещаем frame в область с полосой прокрутки
         scroll_area.setWidget(frame_for_statistic)
@@ -1239,24 +1306,28 @@ def statistic_master():
         # задаём размер области для отображения данных
         statistic.setGeometry(0, 0, 1460, w)
         # создаём модель
-        sqm = QSqlQueryModel(parent=window)
+        sqmm = QSqlTableModel()
+        sqmm.setTable('master')
+        sqmm.select()
+        # sqm = QSqlQueryModel(parent=window)
         # устанавливаем ширину столбцов под содержимое
         statistic.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         # устанавливаем высоту столбцов под содержимое
         statistic.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         # устанавливаем разный цвет фона для чётных и нечётных строк
         statistic.setAlternatingRowColors(True)
-        statistic.setModel(sqm)
+        # statistic.setModel(sqm)
+        statistic.setModel(sqmm)
         # создаём запрос и сортируем по номеру репорта
-        sqm.setQuery('SELECT * FROM master ORDER BY report_number', db=QSqlDatabase('reports_db.sqlite'))
+        # sqm.setQuery('SELECT * FROM master ORDER BY report_number DESC', db=QSqlDatabase('reports_db.sqlite'))
         # активируем кнопку в левом верхнем углу таблицы для выделения всей таблицы
-        statistic.setCornerButtonEnabled(True)
+        # statistic.setCornerButtonEnabled(True)
         # горизонтальная полоса прокрутки в пределах отображения одной таблицы
-        statistic.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        frame_for_statistic.setVisible(True)
-        statistic.setVisible(True)
+        # statistic.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        # frame_for_statistic.setVisible(True)
+        # statistic.setVisible(True)
         statistic.show()
-        scroll_area.show()
+        # scroll_area.show()
         cur.close()
         logger_with_user.info('Просмотр сводных данных из таблицы master')
     # закрываем соединение с базой данных
@@ -1439,7 +1510,7 @@ def print_table():
         conn = sqlite3.connect('reports_db.sqlite')
         cur = conn.cursor()
         # получаем все данные из таблицы master и сортируем по номеру репорта
-        myself = cur.execute("SELECT * FROM master ORDER BY report_number")
+        myself = cur.execute("SELECT * FROM master ORDER BY report_number DESC")
         # перебираем строки в master
         for i, row in enumerate(myself):
             # перебираем столбцы в master
@@ -1522,7 +1593,7 @@ def print_table():
                     max_length_column = 0
                     # перебираем все заполненные строки
                     for roww in range(2, ii + 1):
-                        sheet_for_print.cell(row=roww, column=int(index_nom_thickness_name_column + 1)).fill = PatternFill(
+                        sheet_for_print.cell(row=roww, column=int(index_nom_thickness_name_column) + 1).fill = PatternFill(
                             fgColor="77dd77",
                             fill_type="solid")
                         if len(str(sheet_for_print.cell(row=roww, column=coll).value)) > max_length_column:
