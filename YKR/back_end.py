@@ -93,14 +93,18 @@ def add_table(name_dir):
                 except KeyError as key_error:
                     logger_with_user.error(key_error)
                     continue
-                # меняем '-' на '_' в названиях репортов в rep_number['report_number']
-                rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
-                # меняем ' ' на '_' в названиях репортов в rep_number['report_number']
-                rep_number['report_number'] = re.sub(' ', '_', rep_number['report_number'])
-                # меняем '.' на '_' в названиях репортов в rep_number['report_number']
-                rep_number['report_number'] = re.sub('\.', '_', rep_number['report_number'])
-                # добавляем в список номера репортов для статистики
-                list_load_report.append(rep_number['report_number'])
+                try:
+                    # меняем '-' на '_' в названиях репортов в rep_number['report_number']
+                    rep_number['report_number'] = re.sub('-', '_', rep_number['report_number'])
+                    # меняем ' ' на '_' в названиях репортов в rep_number['report_number']
+                    rep_number['report_number'] = re.sub(' ', '_', rep_number['report_number'])
+                    # меняем '.' на '_' в названиях репортов в rep_number['report_number']
+                    rep_number['report_number'] = re.sub('\.', '_', rep_number['report_number'])
+                    # добавляем в список номера репортов для статистики
+                    list_load_report.append(rep_number['report_number'])
+                except KeyError as key_error:
+                    logger_with_user.error(key_error)
+                    continue
                 # извлекаем необходимые данные из репорта
                 # переменная со всеми таблицами в репорте
                 all_tables = doc.tables
@@ -996,7 +1000,7 @@ def add_table(name_dir):
                         for iii in range(len(clear_table_bottom[i][ii])):
                             clear_table_bottom[i][ii][iii] = re.sub(',', '.', clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii][iii] = re.sub('\'+|\'+|”|″|″', '', clear_table_bottom[i][ii][iii])
-
+# 16165
                 # создаём подключение к базе данных
                 conn = sqlite3.connect(DB_NAME)
                 cur = conn.cursor()
@@ -1007,6 +1011,7 @@ def add_table(name_dir):
                 all_table.append(len(clear_table_bottom.keys()))
                 # добавляем данные из репорта в базу данных
                 for i in list(clear_table_bottom.keys()):
+                    print(i)
                     # собираем название таблицы
                     name_clear_table = '\'' + '_' + str(i) + '_' + rep_number['report_number'] + '\''
                     # проверяем, есть такая таблица в базе данных, что бы вносимые данные не повторялись
@@ -1017,8 +1022,9 @@ def add_table(name_dir):
                             # добавляем название таблицы в список для master
                             list_add_table.append(name_clear_table)
                             # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
-                            cur.execute(
-                                'CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
+                            print(name_clear_table)
+                            print(name_column)
+                            cur.execute('CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
                             conn.commit()
                         except (sqlite3.OperationalError, KeyError):
                             # уменьшаем количество добавленных таблиц, если что-то пошло не так
@@ -1028,10 +1034,9 @@ def add_table(name_dir):
                             dont_save_tables.append(name_clear_table)
                             # сохраняем внесённые изменения, если не было ошибок в репорте
                             conn.commit()
-                            # перехватываем все исключения, которые не предусмотрены в коду выше и записываем их в LogFile
+                            # перехватываем все исключения, которые не предусмотрены в коде выше и записываем их в LogFile
                             logger_with_user.error(str(rep_number['report_number']))
                             logger_with_user.error(traceback.format_exc())
-
                         for ii in clear_table_bottom[i]:
                             try:
                                 cur.execute(
@@ -1069,7 +1074,7 @@ def add_table(name_dir):
                 # перебираем номера репортов, которые есть в таблице master
                 for j in cur.execute('SELECT report_number FROM master').fetchall():
                     # если такой репорт есть (сравниваем последний 6 символов репорта - они уникальны)
-                    if rep_number['report_number'][-6:] == j[0][-6:]:
+                    if rep_number['report_number'][-13:] == j[0][-13:]:
                         # то меняем статус активатора
                         check_report_number += 1
                 # если репорт записан, то добавляем его в список для подсчёта количества загруженных таблиц для репорта
@@ -1083,11 +1088,6 @@ def add_table(name_dir):
                     li_rep.append(list_add_table)
                 else:
                     li_rep.append(0)
-
-
-                print(dont_save_tables)
-                print(str_add_table)
-
                 stop_wright = True
                 # если статус активатора НЕ изменён (такой репорт еще не занесён в базу данных)
                 if check_report_number == 0:
@@ -1144,9 +1144,9 @@ def add_table(name_dir):
                 logger_with_user.info('Добавление новых репортов в базу данных: ' + rep_number['report_number'])
                 # закрываем соединение с базой данной
                 conn.close()
-        # loading_report(len(list_find_docx), list_load_report, load_table, all_table, li_rep)
+        loading_report(len(list_find_docx), list_load_report, load_table, all_table, li_rep)
     except Exception:
-        # перехватываем все исключения, которые не предусмотрены в коду выше и записываем их в LogFile
+        # перехватываем все исключения, которые не предусмотрены в коде выше и записываем их в LogFile
         # if rep_number['report_number']:
         #     logger_with_user.error(str(rep_number['report_number']))
         logger_with_user.error(traceback.format_exc())
