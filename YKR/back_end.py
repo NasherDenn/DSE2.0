@@ -1000,9 +1000,40 @@ def add_table(name_dir):
                         for iii in range(len(clear_table_bottom[i][ii])):
                             clear_table_bottom[i][ii][iii] = re.sub(',', '.', clear_table_bottom[i][ii][iii])
                             clear_table_bottom[i][ii][iii] = re.sub('\'+|\'+|”|″|″', '', clear_table_bottom[i][ii][iii])
-# 16165
+
+                print(rep_number['report_number'])
+                # формируем название базы данных для разграничения направления загрузки данных в соответствии с их принадлежностями
+                # к локациям, годам и методам контроля
+                # список локаций
+                loc = ['ON', 'OF', 'OFF', 'OS']
+                # определяем локацию (ON, OF, OS) к которой должен относиться репорт
+                for i in loc:
+                    if i in rep_number['report_number'].upper():
+                        loc_for_db = i
+                # список методов контроля
+                ndt = ['UT', 'UTT', 'PAUT', 'DRT', 'RT']
+                # определяем метод контроля (UTT, PAUT, DRT, RT) к которому должен относиться репорт
+                for i in ndt:
+                    if '_' + i + '_' in rep_number['report_number'].upper():
+                        # различное написание в верхнем колонтитуле репортов метода контроля 'UT' или 'UTT'
+                        if i.upper() == 'UT' or i.upper() == 'UTT':
+                            ndt_for_db = 'UTT'
+                        else:
+                            ndt_for_db = i
+                # список годов
+                years = ['18', '19', '20', '21', '22', '23', '24', '25']
+                # определяем год (2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025) к которому должен относиться репорт
+                for i in years:
+                    if '_' + i + '_' in rep_number['report_number'].upper():
+                        years_for_db = i
+                # конечное имя базы данных
+                reports = 'reports_db_' + str(loc_for_db) + '_' + str(ndt_for_db) + '_' + str(years_for_db) + '.sqlite'
+                # создаём соединение с выбранной базой данных
+                conn = sqlite3.connect(r'C:\Users\asus\PycharmProjects\YKR\YKR\DB\\' + reports)
+                # передаём имя базы данных для открытия
+                # conn.setDatabaseName(r'C:\Users\asus\PycharmProjects\YKR\YKR\DB\\' + reports)
                 # создаём подключение к базе данных
-                conn = sqlite3.connect(DB_NAME)
+                # conn = sqlite3.connect(DB_NAME)
                 cur = conn.cursor()
                 # переменная количества добавленных репортов
                 check_amount_reports = 0
@@ -1011,7 +1042,7 @@ def add_table(name_dir):
                 all_table.append(len(clear_table_bottom.keys()))
                 # добавляем данные из репорта в базу данных
                 for i in list(clear_table_bottom.keys()):
-                    print(i)
+                    # print(i)
                     # собираем название таблицы
                     name_clear_table = '\'' + '_' + str(i) + '_' + rep_number['report_number'] + '\''
                     # проверяем, есть такая таблица в базе данных, что бы вносимые данные не повторялись
@@ -1022,8 +1053,8 @@ def add_table(name_dir):
                             # добавляем название таблицы в список для master
                             list_add_table.append(name_clear_table)
                             # создаем таблицу с именем name_clear_table и со столбцами name_column[i]
-                            print(name_clear_table)
-                            print(name_column)
+                            # print(name_clear_table)
+                            # print(name_column)
                             cur.execute('CREATE TABLE IF NOT EXISTS ' + name_clear_table + ' ({})'.format(','.join(name_column[i])))
                             conn.commit()
                         except (sqlite3.OperationalError, KeyError):
@@ -1058,6 +1089,10 @@ def add_table(name_dir):
                                 logger_with_user.error(str(rep_number['report_number']))
                                 logger_with_user.error(traceback.format_exc())
                                 continue
+                        else:
+                            # делаем запрос в базу данных для получения id (для таблицы master) для только что добавленного репорта
+                            id = cur.execute('SELECT Line FROM {}'.format(name_clear_table)).fetchone()[0][:6]
+                            print(id)
                         conn.commit()
                 # преобразуем list_add_table из списка в строку для записи в столбец (list_table_report) в master
                 str_add_table = ''
@@ -1068,7 +1103,7 @@ def add_table(name_dir):
                         str_add_table = str_add_table + j + '\n'
                 # создаём таблицу master со столбцами из rep_number
                 cur.execute(
-                    'CREATE TABLE IF NOT EXISTS master (report_number, report_date, work_order, one_of, list_table_report)')
+                    'CREATE TABLE IF NOT EXISTS master (id, report_number, report_date, work_order, one_of, list_table_report)')
                 # активатор наличия репорта в таблице master
                 check_report_number = 0
                 # перебираем номера репортов, которые есть в таблице master
@@ -1089,6 +1124,10 @@ def add_table(name_dir):
                 else:
                     li_rep.append(0)
                 stop_wright = True
+
+
+
+
                 # если статус активатора НЕ изменён (такой репорт еще не занесён в базу данных)
                 if check_report_number == 0:
                     # вносим данные из rep_number в таблицу master
@@ -1098,12 +1137,14 @@ def add_table(name_dir):
                                 stop_wright = False
                         if stop_wright:
                             cur.execute(
-                                'INSERT INTO master VALUES (?, ?, ?, ?, ?)', (rep_number['report_number'],
-                                                                              rep_number['report_date'],
-                                                                              rep_number['work_order'],
-                                                                              str(check_amount_reports) + '/' + str(
-                                                                                  len(clear_table_bottom.keys())),
-                                                                              str_add_table))
+                                'INSERT INTO master VALUES (?, ?, ?, ?, ?, ?)',
+                                (id,
+                                 rep_number['report_number'],
+                                 rep_number['report_date'],
+                                 rep_number['work_order'],
+                                 str(check_amount_reports) + '/' + str(
+                                     len(clear_table_bottom.keys())),
+                                 str_add_table))
                             conn.commit()
 
                 # если статус активатора изменён (такой репорт уже есть в базе данных)
@@ -1150,7 +1191,6 @@ def add_table(name_dir):
         # if rep_number['report_number']:
         #     logger_with_user.error(str(rep_number['report_number']))
         logger_with_user.error(traceback.format_exc())
-
 
 
 # len_list_find_docx = len(list_find_docx) = количество загружаемых файлов xlsx
