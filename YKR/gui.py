@@ -56,7 +56,7 @@ window.setWindowTitle('Data Search Engine')
 # задаём стиль приложения Fusion
 app.setStyle('Fusion')
 # размер окна приложения
-window.setFixedSize(1700, 872)
+window.setFixedSize(1521, 965)
 # window.setFixedSize(1524, 872)
 
 # устанавливаем favicon в окне приложения
@@ -109,7 +109,7 @@ button_search.setFocusPolicy(Qt.ClickFocus)
 # создаём кнопку "Закрыть" из программы
 button_exit = QPushButton('Закрыть', window)
 # устанавливаем положение и размер кнопки "Закрыть" для выхода из программы в родительском окне (window)
-button_exit.setGeometry(QRect(1340, 810, 161, 41))
+button_exit.setGeometry(QRect(1340, 904, 161, 41))
 # присваиваем уникальное объектное имя кнопке "Закрыть"
 button_exit.setObjectName(u"pushButton_exit")
 # задаём параметры стиля и оформления кнопки "Закрыть"
@@ -188,7 +188,7 @@ label_password.setFont(font_label_password)
 # создаём кнопку печати
 button_print = QPushButton('Печать', window)
 # устанавливаем положение и размер кнопки печати в родительском окне (window)
-button_print.setGeometry(QRect(20, 80, 161, 41))
+button_print.setGeometry(QRect(20, 155, 161, 41))
 # присваиваем уникальное объектное имя кнопке "Печать"
 button_print.setObjectName(u"pushButton_print")
 # задаём параметры стиля и оформления кнопки печати
@@ -232,7 +232,7 @@ button_log_out.setDisabled(True)
 # создаём кнопку "Добавить"
 button_add = QPushButton('Добавить', window)
 # устанавливаем положение и размер кнопки "Добавить" в родительском окне (window)
-button_add.setGeometry(QRect(200, 80, 161, 41))
+button_add.setGeometry(QRect(200, 155, 161, 41))
 # присваиваем уникальное объектное имя кнопке "Добавить"
 button_add.setObjectName(u"pushButton_add")
 # задаём параметры стиля и оформления кнопки "Добавить"
@@ -245,40 +245,10 @@ button_add.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Добавить" до авторизации
 button_add.setDisabled(True)
 
-# создаём кнопку "Редактировать"
-button_repair = QPushButton('Редактировать', window)
-# устанавливаем положение и размер кнопки "Редактировать" в родительском окне (window)
-button_repair.setGeometry(QRect(380, 80, 201, 41))
-# присваиваем уникальное объектное имя кнопке "Редактировать"
-button_repair.setObjectName(u"pushButton_repair")
-# задаём параметры стиля и оформления кнопки "Редактировать"
-font_button_repair = QFont()
-font_button_repair.setFamily(u"Arial")
-font_button_repair.setPointSize(14)
-button_repair.setFont(font_button_repair)
-# дополнительные параметры
-button_repair.setFocusPolicy(Qt.ClickFocus)
-# делаем неактивной кнопку "Редактировать" до авторизации
-button_repair.setDisabled(True)
-
-# создаём кнопку "Готово"
-button_ok = QPushButton('Готово', window)
-# устанавливаем положение и размер кнопки "Готово" в родительском окне (window)
-button_ok.setGeometry(QRect(600, 80, 161, 41))
-# присваиваем уникальное объектное имя кнопке "Готово"
-button_ok.setObjectName(u"pushButton_ok")
-# задаём параметры стиля и оформления кнопки "Готово"
-font_button_ok = QFont()
-font_button_ok.setFamily(u"Arial")
-font_button_ok.setPointSize(14)
-button_ok.setFont(font_button_ok)
-# дополнительные параметры
-button_ok.setFocusPolicy(Qt.ClickFocus)
-
 # создаём кнопку "Удалить"
 button_delete = QPushButton('Удалить', window)
 # устанавливаем положение и размер кнопки "Удалить" в родительском окне (window)
-button_delete.setGeometry(QRect(20, 810, 171, 41))
+button_delete.setGeometry(QRect(20, 904, 171, 41))
 # присваиваем уникальное объектное имя кнопке "Удалить"
 button_delete.setObjectName(u"pushButton_delete")
 # задаём параметры стиля и оформления кнопки "Удалить"
@@ -291,10 +261,10 @@ button_delete.setFocusPolicy(Qt.ClickFocus)
 # делаем неактивной кнопку "Удалить" до авторизации
 button_delete.setDisabled(True)
 
-# создаём кнопку "Сформировать отчёт"
-button_create_report = QPushButton('Сформировать отчёт', window)
-# устанавливаем положение и размер кнопки "Сформировать отчёт" в родительском окне (window)
-button_create_report.setGeometry(QRect(210, 810, 250, 41))
+# создаём кнопку "Создать отчёт"
+button_create_report = QPushButton('Создать отчёт', window)
+# устанавливаем положение и размер кнопки "Создать отчёт" в родительском окне (window)
+button_create_report.setGeometry(QRect(380, 155, 201, 41))
 # присваиваем уникальное объектное имя кнопке "Сформировать отчёт"
 button_create_report.setObjectName(u"pushButton_create_report")
 # задаём параметры стиля и оформления кнопки "Сформировать отчёт"
@@ -308,7 +278,7 @@ button_create_report.setFocusPolicy(Qt.ClickFocus)
 # создаём кнопку "Сводные данные"
 button_statistic_master = QPushButton('Сводные данные', window)
 # устанавливаем положение и размер кнопки "Сводные данные" в родительском окне (window)
-button_statistic_master.setGeometry(QRect(479, 810, 201, 41))
+button_statistic_master.setGeometry(QRect(659, 904, 201, 41))
 # присваиваем уникальное объектное имя кнопке "Сводные данные"
 button_statistic_master.setObjectName(u"pushButton_statistic_master")
 # задаём параметры стиля и оформления кнопки "Сводные данные"
@@ -346,13 +316,13 @@ scroll_area.setObjectName(u'Scroll_Area')
 scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 # задаём размер области с полосой прокрутки
-scroll_area.setGeometry(20, 140, 1481, 650)
+scroll_area.setGeometry(20, 215, 1481, 670)
 
 # создаём группу из радио-кнопок 'ON', 'OF', 'OS'
 groupBox_location = QGroupBox(window)
 groupBox_location.setObjectName(u"groupBox_radio")
 # устанавливаем размер группы радио-кнопок
-groupBox_location.setGeometry(QRect(1521, 140, 161, 61))
+groupBox_location.setGeometry(QRect(20, 80, 161, 56))
 # устанавливаем название группы радио-кнопок
 groupBox_location.setTitle('Локация')
 groupBox_location.setStyleSheet('''QGroupBox {border: 0.5px solid grey;};
@@ -388,74 +358,10 @@ radioButton_os.setGeometry(QRect(110, 25, 42, 20))
 # указываем текст радио-кнопки
 radioButton_os.setText('OS')
 
-# создаём группу из чек-боксов годов
-groupBox_year = QGroupBox(window)
-groupBox_year.setObjectName(u"groupBox_year")
-# устанавливаем размер группы радио-кнопок
-groupBox_year.setGeometry(QRect(1521, 210, 161, 111))
-# устанавливаем название группы чек-боксов
-groupBox_year.setTitle('Год контроля')
-groupBox_year.setStyleSheet('''QGroupBox {border: 0.5px solid grey;};
-                               QGroupBox:title{
-                               subcontrol-origin: margin;
-                               subcontrol-position: top center;
-                               padding: 0 3px 0 3px;
-                            }''')
-
-# создаём чек-бокс года '2018'
-checkBox_2018 = QCheckBox(groupBox_year)
-checkBox_2018.setObjectName(u"checkBo_2018")
-# устанавливаем положение внутри группы
-checkBox_2018.setGeometry(QRect(10, 25, 61, 20))
-# указываем текст чек-бокса
-checkBox_2018.setText('2018')
-
-# создаём чек-бокс года '2019'
-checkBox_2019 = QCheckBox(groupBox_year)
-checkBox_2019.setObjectName(u"checkBox_2019")
-# устанавливаем положение внутри группы
-checkBox_2019.setGeometry(QRect(80, 25, 61, 20))
-# указываем текст чек-бокса
-checkBox_2019.setText('2019')
-
-# создаём чек-бокс года '2020'
-checkBox_2020 = QCheckBox(groupBox_year)
-checkBox_2020.setObjectName(u"checkBox_2020")
-# устанавливаем положение внутри группы
-checkBox_2020.setGeometry(QRect(10, 50, 61, 20))
-# указываем текст чек-бокса
-checkBox_2020.setText('2020')
-
-# создаём чек-бокс года '2021'
-checkBox_2021 = QCheckBox(groupBox_year)
-checkBox_2021.setObjectName(u"checkBox_2021")
-# устанавливаем положение внутри группы
-checkBox_2021.setGeometry(QRect(80, 50, 61, 20))
-# указываем текст чек-бокса
-checkBox_2021.setText('2021')
-
-# создаём чек-бокс года '2022'
-checkBox_2022 = QCheckBox(groupBox_year)
-checkBox_2022.setObjectName(u"checkBox_2022")
-# устанавливаем положение внутри группы
-checkBox_2022.setGeometry(QRect(10, 75, 61, 20))
-# указываем текст чек-бокса
-checkBox_2022.setText('2022')
-# делаем чек-бокс '2022' активным по умолчанию
-checkBox_2022.setChecked(True)
-
-# создаём чек-бокс года '2023'
-checkBox_2023 = QCheckBox(groupBox_year)
-checkBox_2023.setObjectName(u"checkBox_2023")
-# устанавливаем положение внутри группы
-checkBox_2023.setGeometry(QRect(80, 75, 61, 20))
-# указываем текст чек-бокса
-checkBox_2023.setText('2023')
-
 # создаём группу из чек-боксов методов контроля
 groupBox_ndt = QGroupBox(window)
 groupBox_ndt.setObjectName(u"groupBox_ndt")
-groupBox_ndt.setGeometry(QRect(1521, 330, 161, 85))
+groupBox_ndt.setGeometry(QRect(200, 80, 161, 56))
 # устанавливаем название группы чек-боксов
 groupBox_ndt.setTitle('Метод контроля')
 groupBox_ndt.setStyleSheet('''QGroupBox {border: 0.5px solid grey;};
@@ -483,21 +389,61 @@ checkBox_paut.setGeometry(QRect(80, 25, 61, 20))
 # указываем текст чек-бокса
 checkBox_paut.setText('PAUT')
 
-# создаём чек-бокс метода контроля 'DRT'
-checkBox_drt = QCheckBox(groupBox_ndt)
-checkBox_drt.setObjectName(u"checkBox_drt")
-# устанавливаем положение внутри группы
-checkBox_drt.setGeometry(QRect(10, 50, 61, 20))
-# указываем текст чек-бокса
-checkBox_drt.setText('DRT')
+# создаём группу из чек-боксов годов
+groupBox_year = QGroupBox(window)
+groupBox_year.setObjectName(u"groupBox_year")
+# устанавливаем размер группы радио-кнопок
+groupBox_year.setGeometry(QRect(380, 80, 381, 56))
+# устанавливаем название группы чек-боксов
+groupBox_year.setTitle('Год контроля')
+groupBox_year.setStyleSheet('''QGroupBox {border: 0.5px solid grey;};
+                               QGroupBox:title{
+                               subcontrol-origin: margin;
+                               subcontrol-position: top center;
+                               padding: 0 3px 0 3px;
+                            }''')
 
-# создаём чек-бокс метода контроля 'RT'
-checkBox_rt = QCheckBox(groupBox_ndt)
-checkBox_rt.setObjectName(u"checkBox_rt")
+# создаём чек-бокс года '2023'
+checkBox_2023 = QCheckBox(groupBox_year)
+checkBox_2023.setObjectName(u"checkBox_2023")
 # устанавливаем положение внутри группы
-checkBox_rt.setGeometry(QRect(80, 50, 61, 20))
+checkBox_2023.setGeometry(QRect(10, 25, 61, 20))
 # указываем текст чек-бокса
-checkBox_rt.setText('RT')
+checkBox_2023.setText('2023')
+
+# создаём чек-бокс года '2022'
+checkBox_2022 = QCheckBox(groupBox_year)
+checkBox_2022.setObjectName(u"checkBox_2022")
+# устанавливаем положение внутри группы
+checkBox_2022.setGeometry(QRect(80, 25, 61, 20))
+# указываем текст чек-бокса
+checkBox_2022.setText('2022')
+# делаем чек-бокс '2022' активным по умолчанию
+checkBox_2022.setChecked(True)
+
+# создаём чек-бокс года '2021'
+checkBox_2021 = QCheckBox(groupBox_year)
+checkBox_2021.setObjectName(u"checkBox_2021")
+# устанавливаем положение внутри группы
+checkBox_2021.setGeometry(QRect(150, 25, 61, 20))
+# указываем текст чек-бокса
+checkBox_2021.setText('2021')
+
+# создаём чек-бокс года '2020'
+checkBox_2020 = QCheckBox(groupBox_year)
+checkBox_2020.setObjectName(u"checkBox_2020")
+# устанавливаем положение внутри группы
+checkBox_2020.setGeometry(QRect(220, 25, 61, 20))
+# указываем текст чек-бокса
+checkBox_2020.setText('2020')
+
+# создаём чек-бокс года '2019'
+checkBox_2019 = QCheckBox(groupBox_year)
+checkBox_2019.setObjectName(u"checkBox_2019")
+# устанавливаем положение внутри группы
+checkBox_2019.setGeometry(QRect(290, 25, 61, 20))
+# указываем текст чек-бокса
+checkBox_2019.setText('2019')
 
 
 # нажатие на кнопку "Добавить"
@@ -506,7 +452,6 @@ def add_tables():
     name_dir = QFileDialog.getOpenFileNames(None, 'Выбрать папку', r'C:\Users\asus\Documents\NDT YKR\NDT UTT\REPORTS 2022\UTT\ON',
                                             "docx(*.docx)")
     # name_dir = QFileDialog.getOpenFileNames(None, 'Выбрать папку', '/home', "docx(*.docx)")
-    button_ok.setDisabled(True)
     # если выбран файл репорт для загрузки, то
     if name_dir[0]:
         # анимация загрузки
@@ -580,8 +525,6 @@ def search():
         if radioButton_os.isChecked():
             location_db = 'OS'
         # проверяем какие фильтры годов установлены для поиска
-        if checkBox_2018.isChecked():
-            year_db.append('18')
         if checkBox_2019.isChecked():
             year_db.append('19')
         if checkBox_2020.isChecked():
@@ -605,10 +548,6 @@ def search():
             ndt_db.append('UTT')
         if checkBox_paut.isChecked():
             ndt_db.append('PAUT')
-        if checkBox_drt.isChecked():
-            ndt_db.append('DRT')
-        if checkBox_rt.isChecked():
-            ndt_db.append('RT')
         # если ни один метод контроля не выбран, то выдаём сообщение об этом и останавливаем выполнение поиска
         if not ndt_db:
             return QMessageBox.information(
@@ -1618,8 +1557,7 @@ def log_in():
             'Попытка авторизоваться - Не заполнено поле "Пароль", указан логин - "{}"'.format(line_login.text()))
     # если правильно введён логин и пароль
     elif line_login.text() == 'admin' and line_password.text() == 'admin':
-        # делаем активными кнопки "Добавить", "Редактировать", "Удалить", "Выйти", "Сводные данные"
-        button_repair.setDisabled(False)
+        # делаем активными кнопки "Добавить", "Удалить", "Выйти", "Сводные данные"
         button_delete.setDisabled(False)
         button_log_out.setDisabled(False)
         button_add.setDisabled(False)
@@ -1651,7 +1589,6 @@ def log_in():
 
 def log_out():
     # делаем НЕ активными кнопки "Добавить", "Редактировать", "Удалить", "Выйти", "Сводные данные", "Выйти"
-    button_repair.setDisabled(True)
     button_delete.setDisabled(True)
     button_log_out.setDisabled(True)
     button_add.setDisabled(True)
