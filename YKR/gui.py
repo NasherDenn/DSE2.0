@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 
-# from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import QSqlDatabase
 from PyQt5.QtSql import QSqlQueryModel, QSqlTableModel
 from back_end import *
-from gui_create_report import *
 import logging
 import datetime
 import os
@@ -1452,11 +1451,6 @@ def update_master_by_delete(l_t_f_d_r):
     #
 
 
-# нажатие на кнопку "Сформировать отчёт"
-def create_report():
-    window_create_report.show()
-
-
 # активатор статистики
 check_statistic_master = 0
 
@@ -1831,9 +1825,6 @@ line_search.returnPressed.connect(search)
 
 # нажатие на кнопку "Удалить"
 button_delete.clicked.connect(delete_report)
-
-# нажатие на кнопку "Сформировать отчёт"
-button_create_report.clicked.connect(create_report)
 
 # нажатие на кнопку "Сводные данные"
 button_statistic_master.clicked.connect(statistic_master)
