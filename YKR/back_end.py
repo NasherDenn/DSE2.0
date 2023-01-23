@@ -6,7 +6,6 @@ from openpyxl.styles import Font, Alignment
 import datetime
 import re
 import sqlite3
-from YKR.props import DB_NAME
 import os
 import logging
 import traceback
@@ -20,7 +19,8 @@ logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
 
 # функция для извлечения данных из репортов и записи в базу данных при нажатии на кнопку "Добавить"
 def add_table(name_dir):
-    # переменная список для дальнейшего преобразования списка списков в список строк выбранных для загрузки файлов docx
+    # переменная-список для дальнейшего преобразования списка списков в список строк выбранных для загрузки файлов docx
+    print(name_dir)
     name_dir_docx = []
     for i in name_dir[:-1]:
         name_dir_docx.append(i)
@@ -1033,7 +1033,7 @@ def add_table(name_dir):
                 # передаём имя базы данных для открытия
                 # conn.setDatabaseName(r'C:\Users\asus\PycharmProjects\YKR\YKR\DB\\' + reports)
                 # создаём подключение к базе данных
-                # conn = sqlite3.connect(DB_NAME)
+                # conn = sqlite3.connect(reports_db.sqlite)
                 cur = conn.cursor()
                 # переменная количества добавленных репортов
                 check_amount_reports = 0
