@@ -3,12 +3,36 @@ import logging
 import traceback
 import utilities
 from utilities import number_report_wo_date
+import datetime
+
+# # получаем имя машины с которой был осуществлён вход в программу
+# uname = os.environ.get('USERNAME')
+# # инициализируем logger
+# logger = logging.getLogger()
+# logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
+
 
 # получаем имя машины с которой был осуществлён вход в программу
 uname = os.environ.get('USERNAME')
-# инициализируем logger
+# настраиваем систему логирования
+# дата (месяц, год) файла LogFile из системы
+date_log_file = datetime.datetime.now().strftime("%m %Y")
+# путь к папке где будет сохраняться LogFile
+new_path_log_file = f'{os.path.abspath(os.getcwd())}\\Log File\\'
+# если папка Log File не создана,
+if not os.path.exists(new_path_log_file):
+    # то создаём эту папку
+    os.makedirs(new_path_log_file)
+# путь сохранения LogFile
+name_log_file = f'{new_path_log_file}{date_log_file} Log File.txt'
+logging.basicConfig(level=logging.INFO,
+                    handlers=[logging.FileHandler(filename=name_log_file, mode='a', encoding='utf-8')],
+                    format='%(asctime)s [%(levelname)s] Пользователь: %(user)s - %(message)s', )
+# дополняем базовый формат записи лог сообщения данными о пользователе
 logger = logging.getLogger()
 logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
+
+logger_with_user.info('Запуск программы')
 
 
 def add_table():
@@ -24,10 +48,18 @@ def add_table():
     list_files_for_work = utilities.change_only_ykr_reports(list_name_reports_for_future_work)
     # начинаем перебирать репорты, прошедшие предварительную выборку
     for report in list_files_for_work:
-        # получаем из первого верхнего колонтитула репорта не очищенные номер репорта, номер work order и дату
+        # переменная для перехода к следующему репорту, в случае выявленной ошибки
+        break_break = True
+        # получаем из первого верхнего колонтитула репорта неочищенные номер репорта, номер work order и дату
         dirty_rep_number = utilities.number_report_wo_date(report)
         # очищаем номер репорта, номер work order и дату от лишних (пробелы, новая строка) символов
         clear_rep_number = utilities.clear_data_rep_number(dirty_rep_number)
+        # получаем название БД с локацией (ON, OF, OS), методом контроля (UTT, PAUT), годом контроля (18, 19, 20, 21, 22, 23, 24, 25, 26)
+        name_reports_db, break_break = utilities.reports_db(clear_rep_number['report_number'], break_break)
+        print(name_reports_db)
+        # если невозможно получить название БД из номера репорта, то переходим к следующему репорту с записью в Log File
+        if not break_break:
+            continue
         # извлекаем все таблицы из репорта в виде словарей
         dirty_data_report = utilities.get_dirty_data_report(report)
         # первый перебор словарей (таблиц) в репорте
@@ -44,17 +76,18 @@ def add_table():
         first_actual_table = [i for i in first_actual_table if i != val]
 
         # вторым отбором получаем номера ошибочных (первых) таблиц из-за наличия в них "Nominal Thickness"
-        print(first_actual_table)
+        # print(first_actual_table)
         # список ошибочных номеров таблиц
         table_with_mistake_nominal_thickness = []
         if first_actual_table:
             for number_first_clear_table in first_actual_table:
-                table_with_mistake_nominal_thickness.append(utilities.second_clear_table_mistake_first_table(dirty_data_report, number_first_clear_table))
-        print(table_with_mistake_nominal_thickness)
+                table_with_mistake_nominal_thickness.append(
+                    utilities.second_clear_table_mistake_first_table(dirty_data_report, number_first_clear_table))
+        # print(table_with_mistake_nominal_thickness)
         for table in table_with_mistake_nominal_thickness:
             if table in first_actual_table:
                 first_actual_table.remove(table)
-        print(first_actual_table)
+        # print(first_actual_table)
 
 
 def main():
