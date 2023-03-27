@@ -1,8 +1,12 @@
+# -*- coding: utf-8 -*-
+
 from docx import Document
 import re
 import logging
 import traceback
 import os
+import re
+import props
 
 # получаем имя машины с которой был осуществлён вход в программу
 uname = os.environ.get('USERNAME')
@@ -11,13 +15,42 @@ logger = logging.getLogger()
 logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
 
 
-# получение пути и названий репортов для дальнейшей работы
-def get_name_dir(name_dir_files: list) -> list:
+# получение пути и названий репортов и БД для дальнейшей работы
+def get_name_dir(dir_files: str, name_dir_files: list) -> list:
     # переменная-список для дальнейшего преобразования списка списков в список строк выбранных для загрузки файлов docx
     name_dir_docx = []
     for i in name_dir_files:
-        name_dir_docx.append(f'C:/Users/asus/Documents/NDT YKR/Тестовые данные/{i}')
+        name_dir_docx.append(f'{dir_files}{i}')
     return name_dir_docx
+
+
+# проверяем наличие всех БД (с 2019 по 2026 года) во всех вариациях в папке "DB"
+def db_in_folder():
+    path_db = f'{os.path.abspath(os.getcwd())}\DB\\'
+    name_dir_db = []
+    for (dirpath, dirnames, filenames) in os.walk(path_db):
+        name_dir_db.extend(filenames)
+    # полученный список БД
+    list_db_for_check = get_name_dir(path_db, name_dir_db)
+
+    # список баз данных, которых нет в папке "DB"
+    return list(set(props.list_db) - set(list_db_for_check))
+
+
+def get_dirty_data_report(path_to_report: str) -> dict:
+    doc = Document(path_to_report)
+    # переменная со всеми таблицами в репорте
+    all_tables = doc.tables
+    # создаем пустой словарь под неочищенные данные таблиц
+    dirty_data_tables = {i: None for i in range(0, len(all_tables))}
+    for i, table in enumerate(all_tables):
+        # создаем список строк для таблицы `i` (пока пустые)
+        dirty_data_tables[i] = [[] for _ in range(0, len(table.rows))]
+        # проходимся по строкам таблицы `i`
+        for j, row in enumerate(table.rows):
+            for cell in row.cells:
+                dirty_data_tables[i][j].append(cell.text)
+    return dirty_data_tables
 
 
 # выбор только файлов (репортов) в названиях которых есть "04-YKR"
@@ -110,7 +143,6 @@ def clear_data_rep_number(data: dict) -> dict:
         # то добавляем "Rev." через знак "_"
         index_rev = data['report_number'].find('ev')
         data['report_number'] = '_'.join([data['report_number'][:index_rev - 1], data['report_number'][index_rev - 1:]])
-    print(data)
     return data
 
 
@@ -135,8 +167,8 @@ def reports_db(name_report: str, break_break: bool) -> tuple:
                 name_for_reports_db = f'{name_for_reports_db}{i[1:-1].upper()}_'
                 if '_UT_' in name_for_reports_db:
                     name_for_reports_db = name_for_reports_db.replace('_UT_', '_UTT_')
-                if '_OF_' in name_for_reports_db:
-                    name_for_reports_db = name_for_reports_db.replace('_OF_', '_OFF_')
+                if '_OFF_' in name_for_reports_db:
+                    name_for_reports_db = name_for_reports_db.replace('_OFF_', '_OF_')
                 find = True
         # если не нашли метод контроля, то переходим к следующему репорту
         if not find:
@@ -154,36 +186,281 @@ def reports_db(name_report: str, break_break: bool) -> tuple:
     return name_for_reports_db, break_break
 
 
-def get_dirty_data_report(path_to_report: str) -> dict:
-    doc = Document(path_to_report)
-    # переменная со всеми таблицами в репорте
-    all_tables = doc.tables
-    # создаем пустой словарь под неочищенные данные таблиц
-    dirty_data_tables = {i: None for i in range(0, len(all_tables))}
-    for i, table in enumerate(all_tables):
-        # создаем список строк для таблицы `i` (пока пустые)
-        dirty_data_tables[i] = [[] for _ in range(0, len(table.rows))]
-        # проходимся по строкам таблицы `i`
-        for j, row in enumerate(table.rows):
-            for cell in row.cells:
-                dirty_data_tables[i][j].append(cell.text)
-    # print(dirty_data_tables)
-    return dirty_data_tables
-
-
-# получаем только словари (таблицы) в которых есть ключевое слово "Nominal thickness"
-def first_clear_table_nominal_thickness(first_dirty_table: dict, number_dirty_table: int) -> int:
+# Получаем номера словарей (таблиц) в которых есть ключевое слово "Nominal thickness".
+# Если при переборе ячеек таблицы найден "Nominal thickness" и "Project", то делаем запись в logger и исключаем эту таблицу
+# из дальнейшей обработки.
+# При этом проверяем, есть ли в ней реальная таблица с данными на основании нахождения в ней одного значения из списка (North, South, East,
+# Row, West, Extrados, Intrados, Central и т.д.)
+# На выходе получаем номер таблицы для Дальнейшей Обработки и список номеров таблиц с реальными данными (номера для записи в БД).
+def first_clear_table_nominal_thickness(first_dirty_table: dict or list, number_dirty_table: int, report_number: str) -> int or str:
     # перебираем строки в словаре (таблице)
-    for row in first_dirty_table:
+    # активатор наличия "Nominal thickness"
+    nominal_is = False
+    # активатор наличия "Project"
+    project_is = False
+    # активатор наличия одного значения из списка (North, South, East, Row, West, Extrados, Intrados, Central и т.д.)
+    name_column_is = False
+    one_of_name_column = ['Sect', 'sect', 'South', 'south', 'North', 'north', 'West', 'west', 'East', 'east', 'Top', 'top',
+                          'Bottom', 'bottom', 'Extrados', 'extrados', 'Intrados', 'intrados', 'Row', 'row', 'Column', 'column',
+                          'Spot', 'spot', 'Isom', 'isom', 'P&ID', 'p&id', 'S/NO', 's/no', 'O\'clock', 'o\'clock', 'Center', 'center',
+                          'Loc', 'loc', 'Contr', 'contr']
+    for index_row, row in enumerate(first_dirty_table):
+        index_row_nominal_is = -1000
         # перебираем колонки в строке
         for column in row:
             if 'Nom' in column or 'nom' in column or 'NOM' in column:
-                return number_dirty_table
-
-
-# получаем словари (таблицы) в которых есть слово "Project"
-def second_clear_table_mistake_first_table(dirty_data_report: dict, first_actual_table: int) -> int:
-    for row in dirty_data_report[first_actual_table]:
-        for column in row:
+                nominal_is = True
+                index_row_nominal_is = index_row
             if 'Proj' in column:
-                return first_actual_table
+                project_is = True
+            for word in one_of_name_column:
+                if word in column:
+                    index_row_name_column_is = index_row
+                    if index_row_nominal_is == index_row_name_column_is:
+                        name_column_is = True
+    # если в одной таблице и "Nominal thickness", и "Project", и одно значение названия столбца из списка выше
+    if nominal_is and project_is and name_column_is:
+        logger_with_user.warning(f'Проверь репорт {report_number}! Первая таблица с рабочей информацией не отделена от таблиц(ы) с данными')
+        return str(number_dirty_table)
+    # если в таблице только "Nominal thickness"
+    if nominal_is and not project_is:
+        return number_dirty_table
+
+
+# удаляем строки в которых есть слова "result", "details", "notes"
+def delete_first_string(second_dirty_table: list) -> list:
+    # список номеров строк для удаления
+    index_delete_string = []
+    for i, row in enumerate(second_dirty_table):
+        for column in row:
+            if 'res' in column or 'RES' in column or 'Res' in column or 'det' in column or 'DET' in column or 'Det' in column \
+                or 'note' in column or 'NOTE' in column or 'Note' in column:
+                index_delete_string.append(i)
+    if index_delete_string:
+        # удаляем повторяющиеся номера
+        index_delete_string = list(set(index_delete_string))
+        # сортируем номера по убыванию
+        index_delete_string.sort(reverse=True)
+        for index in index_delete_string:
+            second_dirty_table.pop(index)
+    return second_dirty_table
+
+
+# Проверяем таблицы (словарь таблиц), что бы в каждой строке было одинаковое количество ячеек.
+# Если нет, то в таблице есть сдвиги полей, т.е. таблица геометрически не ровная.
+def check_len_row (table_uncheck_len_row: dict, report_number: str) -> dict:
+    # список номеров таблиц для удаления из словаря
+    list_number_table_unequal_row = []
+    for i in table_uncheck_len_row.keys():
+        # список длин строк в таблице
+        list_len_row = []
+        for row in table_uncheck_len_row[i]:
+            list_len_row.append(len(row))
+        if len(set(list_len_row)) != 1 or not set(list_len_row):
+            list_number_table_unequal_row.append(i)
+    if list_number_table_unequal_row:
+        for i in list_number_table_unequal_row:
+            logger_with_user.warning(f'"Не ровная" таблица. Проверь таблицу {i} в репорте {report_number}')
+            table_uncheck_len_row.pop(i)
+    return table_uncheck_len_row
+
+
+# определяем чем является таблица: "сетка" или обыкновенная
+# на выходе получаем словарь {"mesh": ["номер таблиц"], "ord": ["номер таблиц"]}
+# "mesh" - сетка, "ord" - обыкновенная
+def which_table(data_table_equal_row: dict) -> list:
+    # список таблиц, которые являются "сеткой"
+    this_is_mesh = []
+    # список таблиц, которые являются обыкновенными
+    for i in data_table_equal_row.keys():
+        check = 0
+        # если в таблице больше 6 строк (в сетке много строк)
+        if len(data_table_equal_row[i]) > 6:
+            for step in range(4):
+                if len(set(data_table_equal_row[i][step])) == 2:
+                    check += 1
+        # если хотя бы 3 строки (защита, от пропуска на предыдущем этапе отсеивания "не ровных" таблиц) имеют две ячейки, то - "сетка"
+        if check > 2:
+            this_is_mesh.append(i)
+    return this_is_mesh
+
+
+# преобразуем таблицы с "сеткой" - переносим первые четыре строки в названия столбцов и их значения
+# на входе словарь после преобразования ("не ровная" таблица) и список таблиц "сетка"
+# на выходе новый словарь преобразованных таблиц: первая строка - название столбцов, остальные - данные
+def converted_mesh(data_table_equal_row: dict, mesh_table: list, number_report: str) -> dict:
+    for index_table in mesh_table:
+        # словарь {"название столбцов": "значение"} для дальнейшего преобразования
+        name_value_converted = {}
+        # перебираем первые 5 строк в таблице
+        for step in range(6):
+            # если длина уникальных значений в строке == 2
+            if len(set(data_table_equal_row[index_table][step])) == 2:
+                # то перебираем их в виде списка
+                name_value = list(set(data_table_equal_row[index_table][step]))
+                for future_column in name_value:
+                    # и сравниваем со списком возможных названий столбцов
+                    if 'Lin' in future_column or 'lin' in future_column or 'Tag' in future_column or 'tag' in future_column\
+                        or 'Cont' in future_column or 'cont' in future_column or 'Draw' in future_column or 'draw' in future_column\
+                            or 'Isom' in future_column or 'isom' in future_column:
+                        name_column = 'Line'
+                    elif 'Dia' in future_column or 'dia' in future_column :
+                        name_column = 'Diameter'
+                    elif 'Nom' in future_column or 'nom' in future_column:
+                        name_column = 'Nominal_thickness'
+                    elif 'Item' in future_column or 'item' in future_column or 'Desc' in future_column or 'desc' in future_column:
+                        name_column = 'Item_description'
+                    else:
+                        value = future_column
+                name_value_converted[name_column] = value
+        # проверка на то, что мы получили все четыре строки (Line, Diameter, Nominal_thickness, Item_description)
+        if len(name_value_converted) != 4:
+            logger_with_user.error(f'В таблице {index_table} репорта {number_report} не могу найти Line или Diameter, '
+                                   f'или Nominal_thickness, или Item_description')
+            continue
+        # проверяем находится ли в одной ячейке номер линии и чертежа
+        if 'A1-' in name_value_converted['Line'] and 'KE01-' in name_value_converted['Line']:
+            # если да, то рассоединяем их
+            line_drawing = disconnect_line_drawing(name_value_converted['Line'])
+            # заменяем 'Line' и дополняем 'Drawing' в name_value_converted
+            name_value_converted['Line'] = line_drawing['Line']
+            name_value_converted['Drawing'] = line_drawing['Drawing']
+
+        # на данном этапе получили словарь name_value_converted типа:
+        # {'Line': 'A1-2002-RO-007-20-A11-HC', 'Diameter': '8”', 'Nominal_thickness': '8.18 mm', 'Item_description': 'TML-001 (Elbow)',
+        #  'Drawing': 'KE01-A1-200-PO-P-DI-2086-001'}
+        # удаляем из каждой таблицы (data_table_equal_row[index_table]) первые 4 строки с номером линии, чертежа, диаметром, объектом
+        data_table_equal_row[index_table] = data_table_equal_row[index_table][4:]
+        # теперь в таблице data_table_equal_row[index_table] первый список (строка) - название колонок, остальные - данные
+        # соединяем ключи name_value_converted с первым списком data_table_equal_row[index_table],
+        # значения name_value_converted с каждым последующим списком в data_table_equal_row[index_table]
+        # 'Line' - всегда первое место, затем 'Drawing', 'Item_description', 'Diameter', 'Nominal_thickness'
+
+        # дополняем первую строку (список) в каждой таблице новыми названиями столбцов
+        if len(name_value_converted) == 5:
+            data_table_equal_row[index_table][0].insert(0, 'Line')
+            data_table_equal_row[index_table][0].insert(1, 'Drawing')
+            data_table_equal_row[index_table][0].insert(2, 'Item_description')
+            data_table_equal_row[index_table][0].insert(3, 'Diameter')
+            data_table_equal_row[index_table][0].insert(4, 'Nominal_thickness')
+        if len(name_value_converted) == 4:
+            data_table_equal_row[index_table][0].insert(0, 'Line')
+            data_table_equal_row[index_table][0].insert(1, 'Item_description')
+            data_table_equal_row[index_table][0].insert(2, 'Diameter')
+            data_table_equal_row[index_table][0].insert(3, 'Nominal_thickness')
+
+        # дополняем остальные строки с данными значениями новых столбцов
+        # перебираем строки, начиная со второй в каждой таблице, и дополняем их значениями
+        for row in data_table_equal_row[index_table][1:]:
+            if len(name_value_converted) == 5:
+                row.insert(0, name_value_converted['Line'])
+                row.insert(1, name_value_converted['Drawing'])
+                row.insert(2, name_value_converted['Item_description'])
+                row.insert(3, name_value_converted['Diameter'])
+                row.insert(4, name_value_converted['Nominal_thickness'])
+            if len(name_value_converted) == 4:
+                row.insert(0, name_value_converted['Line'])
+                row.insert(1, name_value_converted['Item_description'])
+                row.insert(2, name_value_converted['Diameter'])
+                row.insert(3, name_value_converted['Nominal_thickness'])
+    return data_table_equal_row
+
+
+# рассоединение номера линии и номера чертежа
+def disconnect_line_drawing(line_and_drawing: str) -> dict:
+    # словарь рассоединённых и очищенных номера линии и номера чертежа
+    clean_line_drawing = {}
+    # получаем "грязный" номер чертежа в виде строки
+    drawing = re.findall(r'KE01-.+|TR01-.+', line_and_drawing)[0]
+    # получаем "грязный" номер линии в виде строки
+    line = line_and_drawing.replace(drawing, '')
+    # очищаем их от лишних знаков
+    clean_line_drawing['Line'] = dirt_cleaning(line)
+    clean_line_drawing['Drawing'] = dirt_cleaning(drawing)
+    return clean_line_drawing
+
+
+# функция очистки строки от пустых символов, недопустимых знаков и т.д.
+def dirt_cleaning(dirt_str: str) -> str:
+    # удаление любых пробельных символов
+    dirt_str = re.sub('\s+', '', dirt_str)
+    # удаление знака "/"
+    dirt_str = re.sub('/', '', dirt_str)
+    dirt_str = dirt_str.upper()
+    return dirt_str
+
+
+# приводим в порядок названия столбцов (первый список) и данные (остальные строки)
+def shit_in_shit_out(finish_dirty_table: dict) -> dict:
+    print(finish_dirty_table)
+    # итоговый, очищенный, приведённый в порядок словарь {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
+    finish_data = {}
+    for index_table in finish_dirty_table.keys():
+        # форматируем названия столбцов
+        finish_name_column = cleaning_name_column(finish_dirty_table[index_table][0])
+        # форматируем значения данных во всех остальных строках
+        finish_value_table = cleaning_value_table(finish_dirty_table[index_table][1:])
+        finish_data[index_table] = [finish_name_column, finish_value_table]
+    return finish_data
+
+
+# приводим в порядок названия столбцов
+def cleaning_name_column(list_dirty_name_column: list) -> list:
+    for i, column in enumerate(list_dirty_name_column):
+        stop = True
+        # если в названии столбца указаны "часы"
+        num = False
+        for element in column:
+            if element.isnumeric():
+                num = True
+        clock = False
+        if 'clock' in column:
+            clock = True
+        if clock and num:
+            new_column = re.sub('\s+', '', column)
+            list_dirty_name_column.pop(i)
+            # вставляем на удалённое место новое допустимое название столбца
+            list_dirty_name_column.insert(i, new_column)
+        # если название столбца это только цифры
+        elif re.sub('\s', '', column).isnumeric():
+            column = re.sub('\s', '', column)
+            list_dirty_name_column.pop(i)
+            # вставляем на удалённое место новое допустимое название столбца
+            list_dirty_name_column.insert(i, column)
+        else:
+            # если в названии столбца присутствуют стандартные названия
+            for utt_name_column_for_search in props.tuple_utt_name_column_for_search:
+                if stop:
+                    for name in props.utt_name_column[utt_name_column_for_search]:
+                        if name in column.upper():
+                            list_dirty_name_column.pop(i)
+                            # вставляем на удалённое место допустимое название столбца
+                            list_dirty_name_column.insert(i, utt_name_column_for_search)
+                            stop = False
+                            break
+                else:
+                    break
+        # удаляем все пробельные символы
+        if re.findall(r' ', list_dirty_name_column[i]):
+            new_column = re.sub('\s', '', list_dirty_name_column[i])
+            list_dirty_name_column.pop(i)
+            # вставляем на удалённое место новое допустимое название столбца
+            list_dirty_name_column.insert(i, new_column)
+    return list_dirty_name_column
+
+
+# приводим в порядок значения данных
+def cleaning_value_table(list_dirty_value_table: list) -> list:
+    for ii, row in enumerate(list_dirty_value_table):
+        for i, column in enumerate(row):
+            new_column = re.sub(',', '.', column)
+            new_column = re.sub('\'+|”|"|’’', '', new_column)
+            new_column = re.sub('\s+', '_', new_column)
+            if column == '':
+                new_column = re.sub('', '-', column)
+            elif new_column == '_':
+                new_column = re.sub('_', '-', new_column)
+            row.pop(i)
+            row.insert(i, new_column)
+        # print(row)
+    return list_dirty_value_table
