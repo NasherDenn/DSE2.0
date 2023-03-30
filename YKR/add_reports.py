@@ -55,12 +55,12 @@ def add_table():
     dir_files = 'C:/Users/asus/Documents/NDT YKR/Тестовые данные/'
 
     # для продакшн
-    name_dir = []
-    for (dirpath, dirnames, filenames) in os.walk(dir_files):
-        name_dir.extend(filenames)
+    # name_dir = []
+    # for (dirpath, dirnames, filenames) in os.walk(dir_files):
+    #     name_dir.extend(filenames)
 
     # тест
-    # name_dir = ['04-YKR-A1-210-VC-101-UTT-22-01.docx']
+    name_dir = ['04-YKR-ON-UTT-22-341(KUT 560).docx']
 
     # список путей и названий репортов для дальнейшей обработки
     list_name_reports_for_future_work = YKR.utilities.get_name_dir(dir_files, name_dir)
@@ -123,19 +123,19 @@ def add_table():
             # первый список (строка) - название столбцов
             # остальные списки (строки) - строки со значениями
             # приводим в порядок названия столбцов (первый список) и данные (остальные строки)
-            # print(clear_rep_number['report_number'])
+            # итоговый, очищенный, приведённый в порядок словарь pure_data_table = {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
             pure_data_table = YKR.utilities.shit_in_shit_out(data_table_equal_row)
-
-
+            print(clear_rep_number['report_number'])
             print(pure_data_table)
 
+            # проверяем есть ли в столбце "Line" номер чертежа, если да, то разъединяем их и дополняем новым столбцом "Drawing"
+            # pure_data_table = YKR.utilities.check_drawing_in_line(pure_data_table)
 
-            # print(clear_rep_number['report_number'])
-            # for ii in data_table_equal_row.keys():
-            #     for iii in data_table_equal_row[ii]:
-            #         print(iii)
-            # print(data_table_equal_row)
 
+
+
+            # !!!!!!!!!!!!!!!!!!!!!!! если в ячейке и номер линии и чертежа, то вынести их отдельной колонкой и строкой
+            # !!!!!!!!!!!!!!!!!!!!!!!! если в первой таблице есть полезная таблица, то обрезать все строки до неё (results)
 
 
         # else:

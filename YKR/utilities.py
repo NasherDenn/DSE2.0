@@ -6,7 +6,7 @@ import logging
 import traceback
 import os
 import re
-import props
+from YKR import props
 
 # получаем имя машины с которой был осуществлён вход в программу
 uname = os.environ.get('USERNAME')
@@ -34,6 +34,7 @@ def db_in_folder():
     list_db_for_check = get_name_dir(path_db, name_dir_db)
 
     # список баз данных, которых нет в папке "DB"
+    # return list(set(list_db) - set(list_db_for_check))
     return list(set(props.list_db) - set(list_db_for_check))
 
 
@@ -234,7 +235,7 @@ def delete_first_string(second_dirty_table: list) -> list:
     for i, row in enumerate(second_dirty_table):
         for column in row:
             if 'res' in column or 'RES' in column or 'Res' in column or 'det' in column or 'DET' in column or 'Det' in column \
-                or 'note' in column or 'NOTE' in column or 'Note' in column:
+                or 'note' in column or 'NOTE' in column or 'Note' in column or 'Anex' in column:
                 index_delete_string.append(i)
     if index_delete_string:
         # удаляем повторяющиеся номера
@@ -392,7 +393,6 @@ def dirt_cleaning(dirt_str: str) -> str:
 
 # приводим в порядок названия столбцов (первый список) и данные (остальные строки)
 def shit_in_shit_out(finish_dirty_table: dict) -> dict:
-    print(finish_dirty_table)
     # итоговый, очищенный, приведённый в порядок словарь {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
     finish_data = {}
     for index_table in finish_dirty_table.keys():
@@ -453,6 +453,7 @@ def cleaning_name_column(list_dirty_name_column: list) -> list:
 def cleaning_value_table(list_dirty_value_table: list) -> list:
     for ii, row in enumerate(list_dirty_value_table):
         for i, column in enumerate(row):
+
             new_column = re.sub(',', '.', column)
             new_column = re.sub('\'+|”|"|’’', '', new_column)
             new_column = re.sub('\s+', '_', new_column)
@@ -462,5 +463,15 @@ def cleaning_value_table(list_dirty_value_table: list) -> list:
                 new_column = re.sub('_', '-', new_column)
             row.pop(i)
             row.insert(i, new_column)
-        # print(row)
+
+
+
+            # !!!!!!!!!!!!!!!!!!!!!вынести в отдельную функцию, чтобы потом привести в порядок эти значения
+            # если в ячейке "Line" есть и номер чертежа
+            if re.findall(r'A1-.+', column) and re.findall(r'KE01-.+|TR01-.+', column):
+                dict_line_drawing = disconnect_line_drawing(column)
+            print(dict_line_drawing)
+
+
     return list_dirty_value_table
+

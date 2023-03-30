@@ -4,7 +4,6 @@ import unittest
 import YKR.utilities
 import YKR.add_reports
 import os
-import YKR.props
 
 unittest.TestCase.maxDiff = None
 
@@ -615,42 +614,44 @@ class TestDirtCleaning(unittest.TestCase):
 
 
 # тестовые данный TestShitInShitOut
-expected_test_shit_in_shit_out = {'0': [['line', 'diameter'], ['1', '2"'], ['3', '4']]}
+expected_test_shit_in_shit_out = {'0': [['line', 'diameter', 'north', 'tube'], ['F', '2"'], ['5,4', ' 4', '-6']]}
 # ожидаемые данные TestShitInShitOut
-true_test_shit_in_shit_out = {'0': [['Line', 'Diameter'], [['1', '2'], ['3', '4']]]}
+true_test_shit_in_shit_out = {'0': [['Line', 'Diameter', 'North', 'tube'], [['F', '2'], ['5.4', '_4', '-6']]]}
 
 
 # приводим в порядок названия столбцов (первый список) и данные (остальные строки)
 class TestShitInShitOut(unittest.TestCase):
     def test_shit_in_shit_out(self):
-
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!ModuleNotFoundError: No module named 'props'
-
         self.assertEqual(YKR.utilities.shit_in_shit_out(expected_test_shit_in_shit_out), true_test_shit_in_shit_out)
 
 
 # тестовые данный TestShitInShitOut
-expected_cleaning_name_column = []
+expected_cleaning_name_column = ['Line / Tag N / Номер ', 'Item description / \nУчасток контроля', 'Section number / \nНомер сечения',
+                                  '  Diameter, inch /\nДиаметр, дюйм', 'Nominal thickness, mm /\nНоминальная толщина, мм',
+                                  'South, mm /\nЮг, мм', 'North, mm /\nСевер, мм', 'West, mm /\nЗапад, мм', 'East, mm /\nВосток, мм',
+                                  'Top, mm /\nВерх, мм', 'Bottom, mm /\nНиз, мм', 'Extrados, mm /\nВнешний радиус, мм',
+                                  'Intrados, mm /\nВнутренний радиус, мм', 'Comments  / ОК']
 # ожидаемые данные TestShitInShitOut
-true_cleaning_name_column = []
+true_cleaning_name_column = ['Line', 'Item_description', 'Section', 'Diameter', 'Nominal_thickness', 'South', 'North', 'West', 'East',
+                                  'Top', 'Bottom', 'Extrados', 'Intrados', 'Comments']
 
 
 # приводим в порядок названия столбцов
 class TestCleaningNameColumn(unittest.TestCase):
     def test_cleaning_name_column(self):
-        pass
+        self.assertEqual(YKR.utilities.cleaning_name_column(expected_cleaning_name_column), true_cleaning_name_column)
 
 
 # тестовые данный TestShitInShitOut
-expected_test_cleaning_value_table = []
+expected_test_cleaning_value_table = [['9', 'Nozzle S15', '2”', 'S\nA 350 Gr LF2', '16.65\'', '17,60', '18. 75', '18."20', ' 17.40', '', '   -']]
 # ожидаемые данные TestShitInShitOut
-true_test_cleaning_value_table = []
+true_test_cleaning_value_table = [['9', 'Nozzle_S15', '2', 'S_A_350_Gr_LF2', '16.65', '17.60', '18._75', '18.20', '_17.40', '-', '_-']]
 
 
 # приводим в порядок значения данных
 class TestCleaningValueTable(unittest.TestCase):
     def test_cleaning_value_table(self):
-        pass
+        self.assertEqual(YKR.utilities.cleaning_value_table(expected_test_cleaning_value_table), true_test_cleaning_value_table)
 
 
 var = unittest.main
