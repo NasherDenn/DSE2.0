@@ -14,9 +14,6 @@ uname = os.environ.get('USERNAME')
 logger = logging.getLogger()
 logger_with_user = logging.LoggerAdapter(logger, {'user': uname})
 
-
-# получаем имя машины с которой был осуществлён вход в программу
-uname = os.environ.get('USERNAME')
 # настраиваем систему логирования
 # дата (месяц, год) файла LogFile из системы
 date_log_file = datetime.datetime.now().strftime("%m %Y")
@@ -52,15 +49,15 @@ def add_table():
 
     # тест, надо будет поменять
     # путь к файлам для загрузки из диалогового окна выбора
-    dir_files = 'C:/Users/asus/Documents/NDT YKR/Тестовые данные/'
+    dir_files = 'C:/Users/Андрей/Documents/NDT/Тестовые данные/'
 
     # для продакшн
-    # name_dir = []
-    # for (dirpath, dirnames, filenames) in os.walk(dir_files):
-    #     name_dir.extend(filenames)
+    name_dir = []
+    for (dirpath, dirnames, filenames) in os.walk(dir_files):
+        name_dir.extend(filenames)
 
     # тест
-    name_dir = ['04-YKR-ON-UTT-22-341(KUT 560).docx']
+    # name_dir = ['04-YKR-OF-UTT-22-017 (Module-20, Loc-4,6,7).docx']
 
     # список путей и названий репортов для дальнейшей обработки
     list_name_reports_for_future_work = YKR.utilities.get_name_dir(dir_files, name_dir)
@@ -91,7 +88,7 @@ def add_table():
                 # первый отбор по наличию в словаре (таблице) ключевого слова "Nominal thickness"
                 first_actual_table.append(
                     YKR.utilities.first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table,
-                                                                  clear_rep_number['report_number']))
+                                                                      clear_rep_number['report_number']))
             # убираем None из первого отбора
             val = None
             first_actual_table = [i for i in first_actual_table if i != val]
@@ -107,37 +104,50 @@ def add_table():
                         data_report_without_trash[i] = YKR.utilities.delete_first_string(dirty_data_report[i])
             else:
                 report_number_for_logger = clear_rep_number['report_number']
-                logger_with_user.warning(f'В репорте {report_number_for_logger} нет ключевого слова "Nominal thickness" или первая таблица с рабочей информацией не отделена от таблиц(ы) с данными!')
+                logger_with_user.warning(
+                    f'В репорте {report_number_for_logger} нет ключевого слова "Nominal thickness" или первая таблица с рабочей информацией не отделена '
+                    f'от таблиц(ы) с данными!')
+
+
             # Проверяем таблицу, что бы в каждой строке было одинаковое количество ячеек.
             # Если нет, то в таблице есть сдвиги полей, т.е. таблица геометрически не ровная.
             data_table_equal_row = YKR.utilities.check_len_row(data_report_without_trash, clear_rep_number['report_number'])
+            print(clear_rep_number['report_number'])
+            # print(data_table_equal_row)
             # убираем из дальнейшего перебора пустые данные
             if not data_table_equal_row:
                 continue
+
+
             # определяем, какие номера таблиц являются "сеткой"
             mesh_table = YKR.utilities.which_table(data_table_equal_row)
             if mesh_table:
                 # преобразуем таблицы с "сеткой" - переносим первые четыре строки в названия столбцов и их значения
                 data_table_equal_row = YKR.utilities.converted_mesh(data_table_equal_row, mesh_table, clear_rep_number['report_number'])
+
+
+
+
             # data_table_equal_row - все таблицы на данном этапе, с том числе и преобразованная "сетка" в обычную
             # первый список (строка) - название столбцов
             # остальные списки (строки) - строки со значениями
             # приводим в порядок названия столбцов (первый список) и данные (остальные строки)
             # итоговый, очищенный, приведённый в порядок словарь pure_data_table = {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
             pure_data_table = YKR.utilities.shit_in_shit_out(data_table_equal_row)
-            print(clear_rep_number['report_number'])
-            print(pure_data_table)
-
+            # print(clear_rep_number['report_number'])
             # проверяем есть ли в столбце "Line" номер чертежа, если да, то разъединяем их и дополняем новым столбцом "Drawing"
-            # pure_data_table = YKR.utilities.check_drawing_in_line(pure_data_table)
+            pure_data_table = YKR.utilities.check_drawing_in_line(pure_data_table)
+            print(pure_data_table)
+            # проверяем и меняем повторяющиеся названия столбцов
+            pure_data_table = YKR.utilities.duplicate_name_column(pure_data_table)
 
-
-
-
-            # !!!!!!!!!!!!!!!!!!!!!!! если в ячейке и номер линии и чертежа, то вынести их отдельной колонкой и строкой
-            # !!!!!!!!!!!!!!!!!!!!!!!! если в первой таблице есть полезная таблица, то обрезать все строки до неё (results)
-
-
+            print(pure_data_table)
+            # for i in pure_data_table.keys():
+            #     for ii in pure_data_table[i]:
+            #         print(ii)
+            #         for iii in ii:
+            #             print(len(iii))
+            # !!!!!!!!!!!!! 22-017 разобрать с конечным представлением данных - грязная таблица на входе получается
         # else:
         #     pass
 
