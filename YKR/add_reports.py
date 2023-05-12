@@ -3,9 +3,9 @@
 import os
 import logging
 import sys
-import traceback
+
 import YKR.utilities
-# from YKR.utilities import number_report_wo_date
+import YKR.utilities_db
 import datetime
 
 # получаем имя машины с которой был осуществлён вход в программу
@@ -57,7 +57,7 @@ def add_table():
         name_dir.extend(filenames)
 
     # тест
-    # name_dir = ['04-YKR-OF-UTT-22-017 (Module-20, Loc-4,6,7).docx']
+    # name_dir = ['04-YKR-ON-PAUT-22-007.docx']
 
     # список путей и названий репортов для дальнейшей обработки
     list_name_reports_for_future_work = YKR.utilities.get_name_dir(dir_files, name_dir)
@@ -78,17 +78,19 @@ def add_table():
             continue
         # извлекаем все таблицы из репорта в виде словарей
         dirty_data_report = YKR.utilities.get_dirty_data_report(report)
+        # список номер словарей (таблиц) в которых есть ключевое слово "Nominal thickness"
+        first_actual_table = []
+
         # разделяем алгоритм, на "UTT" и "PAUT"
         if '-UTT-' in clear_rep_number['report_number'] or '-UT-' in clear_rep_number['report_number']:
+            method = 'utt'
             # первый перебор словарей (таблиц) в репорте
-            # список номер словарей (таблиц) в которых есть ключевое слово "Nominal thickness"
-            first_actual_table = []
             for number_dirty_table in dirty_data_report.keys():
                 # выбираем только словари (таблицы) с данными
                 # первый отбор по наличию в словаре (таблице) ключевого слова "Nominal thickness"
                 first_actual_table.append(
                     YKR.utilities.first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table,
-                                                                      clear_rep_number['report_number']))
+                                                                      clear_rep_number['report_number'], method))
             # убираем None из первого отбора
             val = None
             first_actual_table = [i for i in first_actual_table if i != val]
@@ -107,6 +109,16 @@ def add_table():
                 logger_with_user.warning(
                     f'В репорте {report_number_for_logger} нет ключевого слова "Nominal thickness" или первая таблица с рабочей информацией не отделена '
                     f'от таблиц(ы) с данными!')
+            # список номеров таблиц, которые прошли все очистки, для дальнейшего переименования порядковых номеров таблиц для записи в БД
+            finish_list_number_table = YKR.utilities.take_finish_list_number_table(first_actual_table, data_report_without_trash)
+            # переименование номеров таблиц в обычную нумерацию, начиная с 1
+            for index_actual, number_actual in enumerate(finish_list_number_table):
+                if len(finish_list_number_table) == 1:
+                    if type(number_actual) == int:
+                        data_report_without_trash[1] = data_report_without_trash.pop(number_actual)
+                if len(finish_list_number_table) > 1:
+                    if type(number_actual) == int:
+                        data_report_without_trash[index_actual + 1] = data_report_without_trash.pop(number_actual)
             # Проверяем таблицу, что бы в каждой строке было одинаковое количество ячеек.
             # Если нет, то в таблице есть сдвиги полей, т.е. таблица геометрически не ровная.
             data_table_equal_row = YKR.utilities.check_len_row(data_report_without_trash, clear_rep_number['report_number'])
@@ -123,8 +135,8 @@ def add_table():
             # остальные списки (строки) - строки со значениями
             # приводим в порядок названия столбцов (первый список) и данные (остальные строки)
             # итоговый, очищенный, приведённый в порядок словарь pure_data_table = {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
-            method = 'utt'
-            pure_data_table = YKR.utilities.shit_in_shit_out(data_table_equal_row, method)
+
+            pure_data_table = YKR.utilities.shit_in_shit_out(data_table_equal_row, method, clear_rep_number['report_number'])
             # проверяем есть ли в столбце "Line" номер чертежа, если да, то разъединяем их и дополняем новым столбцом "Drawing"
             pure_data_table = YKR.utilities.check_drawing_in_line(pure_data_table)
             # проверяем и меняем повторяющиеся названия столбцов
@@ -132,20 +144,19 @@ def add_table():
             # ЗДЕСЬ ИТОГОВЫЕ ДАННЫЕ ДЛЯ ЗАПИСИ В БД
             pure_data_table = YKR.utilities.duplicate_name_column(pure_data_table)
 
-            print(clear_rep_number['report_number'])
-            print(pure_data_table)
-            # return clear_rep_number['report_number'], pure_data_table
+            # записываем очищенный репорт в базу данных
+            # передаём очищенные, переименованные таблицы, номер репорта, имя БД для записи
+            YKR.utilities_db.write_report_in_db(pure_data_table, clear_rep_number['report_number'], name_reports_db)
 
         if '-PAUT-' in clear_rep_number['report_number']:
+            method = 'paut'
             # первый перебор словарей (таблиц) в репорте
-            # список номер словарей (таблиц) в которых есть ключевое слово "Nominal thickness"
-            first_actual_table = []
             for number_dirty_table in dirty_data_report.keys():
                 # выбираем только словари (таблицы) с данными
                 # первый отбор по наличию в словаре (таблице) ключевого слова "Nominal thickness"
                 first_actual_table.append(
                     YKR.utilities.first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table,
-                                                                      clear_rep_number['report_number']))
+                                                                      clear_rep_number['report_number'], method))
             # убираем None из первого отбора
             val = None
             first_actual_table = [i for i in first_actual_table if i != val]
@@ -164,23 +175,33 @@ def add_table():
                 logger_with_user.warning(
                     f'В репорте {report_number_for_logger} нет ключевого слова "Nominal thickness" или первая таблица с рабочей информацией не отделена '
                     f'от таблиц(ы) с данными!')
+            # список номеров таблиц, которые прошли все очистки, для дальнейшего переименования порядковых номеров таблиц для записи в БД
+            finish_list_number_table = YKR.utilities.take_finish_list_number_table(first_actual_table, data_report_without_trash)
+            # переименование номеров таблиц в обычную нумерацию, начиная с 1
+            for index_actual, number_actual in enumerate(finish_list_number_table):
+                if len(finish_list_number_table) == 1:
+                    if type(number_actual) == int:
+                        data_report_without_trash[1] = data_report_without_trash.pop(number_actual)
+                if len(finish_list_number_table) > 1:
+                    if type(number_actual) == int:
+                        data_report_without_trash[index_actual + 1] = data_report_without_trash.pop(number_actual)
             # Проверяем таблицу, что бы в каждой строке было одинаковое количество ячеек.
             # Если нет, то в таблице есть сдвиги полей, т.е. таблица геометрически не ровная.
             data_table_equal_row = YKR.utilities.check_len_row(data_report_without_trash, clear_rep_number['report_number'])
             # убираем из дальнейшего перебора пустые данные
             if not data_table_equal_row:
                 continue
-            method = 'paut'
+
             # итоговый, очищенный, приведённый в порядок словарь pure_data_table = {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
-            pure_data_table = YKR.utilities.shit_in_shit_out(data_table_equal_row, method)
+            pure_data_table = YKR.utilities.shit_in_shit_out(data_table_equal_row, method, clear_rep_number['report_number'])
             # проверяем есть ли в столбце "Line" номер чертежа, если да, то разъединяем их и дополняем новым столбцом "Drawing"
 
             # ЗДЕСЬ ИТОГОВЫЕ ДАННЫЕ ДЛЯ ЗАПИСИ В БД
             pure_data_table = YKR.utilities.check_drawing_in_line(pure_data_table)
 
-            print(clear_rep_number['report_number'])
-            print(pure_data_table)
-            # return clear_rep_number['report_number'], pure_data_table
+            # записываем очищенный репорт в базу данных
+            # передаём очищенные, переименованные таблицы, номер репорта, имя БД для записи
+            YKR.utilities_db.write_report_in_db(pure_data_table, clear_rep_number['report_number'], name_reports_db)
 
 
 def main():

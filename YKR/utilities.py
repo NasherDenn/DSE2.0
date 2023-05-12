@@ -147,6 +147,7 @@ def clear_data_rep_number(data: dict) -> dict:
         # то добавляем "Rev." через знак "_"
         index_rev = data['report_number'].find('ev')
         data['report_number'] = '_'.join([data['report_number'][:index_rev - 1], data['report_number'][index_rev - 1:]])
+
     return data
 
 
@@ -196,7 +197,7 @@ def reports_db(name_report: str, break_break: bool) -> tuple:
 # При этом проверяем, есть ли в ней реальная таблица с данными на основании нахождения в ней одного значения из списка (North, South, East,
 # Row, West, Extrados, Intrados, Central и т.д.)
 # На выходе получаем номер таблицы для дальнейшей обработки и список номеров таблиц с реальными данными (номера для записи в БД).
-def first_clear_table_nominal_thickness(first_dirty_table: dict or list, number_dirty_table: int, report_number: str) -> int or str:
+def first_clear_table_nominal_thickness(first_dirty_table: dict or list, number_dirty_table: int, report_number: str, method: str) -> int or str:
     # перебираем строки в словаре (таблице)
     # активатор наличия "Nominal thickness"
     nominal_is = False
@@ -204,22 +205,34 @@ def first_clear_table_nominal_thickness(first_dirty_table: dict or list, number_
     project_is = False
     # активатор наличия одного значения из списка (North, South, East, Row, West, Extrados, Intrados, Central и т.д.)
     name_column_is = False
-    one_of_name_column = ['NORTH', 'SOUTH', 'WEST', 'EAST', 'SECT', 'EXTRADOS', 'INTRADOS', 'ROW', 'COLUMN', 'SPOT', 'ISOM', 'P&ID', 'S/NO', 'O\'CLOCK',
-                          'CENTER', 'LOC', 'CONTR']
+    # one_of_name_column = ['NORTH', 'SOUTH', 'WEST', 'EAST', 'SECT', 'EXTRADOS', 'INTRADOS', 'ROW', 'COLUMN', 'SPOT', 'ISOM', 'P&ID', 'S/NO', 'O\'CLOCK',
+    #                       'CENTER', 'LOC', 'CONTR']
+
+    utt_one_of_name_column = ['NORTH', 'SOUTH', 'WEST', 'EAST', 'SECT', 'EXTRADOS', 'INTRADOS', 'ROW', 'COLUMN', 'SPOT', 'ISOM', 'P&ID', 'S/NO', 'O\'CLOCK',
+                              'CENTER', 'LOC', 'CONTR']
+    paut_one_of_name_column = ['START X', 'END X', 'AVERAGE']
+
     for index_row, row in enumerate(first_dirty_table):
         index_row_nominal_is = -1000
         # перебираем колонки в строке
         for column in row:
-            if 'Nom' in column or 'nom' in column or 'NOM' in column:
+            if 'NOM' in column.upper():
                 nominal_is = True
                 index_row_nominal_is = index_row
-            if 'Proj' in column:
+            if 'PROJ' in column.upper():
                 project_is = True
-            for word in one_of_name_column:
-                if word in column.upper():
-                    index_row_name_column_is = index_row
-                    if index_row_nominal_is == index_row_name_column_is:
-                        name_column_is = True
+            if method == 'utt':
+                for word in utt_one_of_name_column:
+                    if word in column.upper():
+                        index_row_name_column_is = index_row
+                        if index_row_nominal_is == index_row_name_column_is:
+                            name_column_is = True
+            if method == 'paut':
+                for word in paut_one_of_name_column:
+                    if word in column.upper():
+                        index_row_name_column_is = index_row
+                        if index_row_nominal_is == index_row_name_column_is:
+                            name_column_is = True
     # если в одной таблице и "Nominal thickness", и "Project", и одно значение названия столбца из списка выше
     if nominal_is and project_is and name_column_is:
         logger_with_user.warning(f'Проверь репорт {report_number}! Первая таблица с рабочей информацией не отделена от таблиц(ы) с данными')
@@ -235,8 +248,8 @@ def delete_first_string(second_dirty_table: list) -> list:
     index_delete_string = []
     for i, row in enumerate(second_dirty_table):
         for column in row:
-            if 'res' in column or 'RES' in column or 'Res' in column or 'det' in column or 'DET' in column or 'Det' in column \
-                    or 'note' in column or 'NOTE' in column or 'Note' in column or 'Anex' in column:
+            if 'RES' in column.upper() or 'DET' in column.upper() or 'NOTE' in column.upper() or 'ANEX' in column.upper() \
+                    or 'ANNEX' in column.upper():
                 index_delete_string.append(i)
     if index_delete_string:
         # удаляем повторяющиеся номера
@@ -245,6 +258,7 @@ def delete_first_string(second_dirty_table: list) -> list:
         index_delete_string.sort(reverse=True)
         for index in index_delete_string:
             second_dirty_table.pop(index)
+    # print(second_dirty_table)
     return second_dirty_table
 
 
@@ -302,15 +316,20 @@ def converted_mesh(data_table_equal_row: dict, mesh_table: list, number_report: 
                 name_value = list(set(data_table_equal_row[index_table][step]))
                 for future_column in name_value:
                     # и сравниваем со списком возможных названий столбцов
-                    if 'Lin' in future_column or 'lin' in future_column or 'Tag' in future_column or 'tag' in future_column \
-                            or 'Cont' in future_column or 'cont' in future_column or 'Draw' in future_column or 'draw' in future_column \
-                            or 'Isom' in future_column or 'isom' in future_column:
+                    # if 'Lin' in future_column or 'lin' in future_column or 'Tag' in future_column or 'tag' in future_column \
+                    #         or 'Cont' in future_column or 'cont' in future_column or 'Draw' in future_column or 'draw' in future_column \
+                    #         or 'Isom' in future_column or 'isom' in future_column:
+                    if 'LIN' in future_column.upper() or 'TAG' in future_column.upper() or 'CONT' in future_column.upper() \
+                            or 'DRAW' in future_column.upper() or 'ISOM' in future_column.upper():
                         name_column = 'Line'
-                    elif 'Dia' in future_column or 'dia' in future_column:
+                    elif 'DIA' in future_column.upper():
+                    # elif 'Dia' in future_column or 'dia' in future_column:
                         name_column = 'Diameter'
-                    elif 'Nom' in future_column or 'nom' in future_column:
+                    elif 'NOM' in future_column.upper():
+                    # elif 'Nom' in future_column or 'nom' in future_column:
                         name_column = 'Nominal_thickness'
-                    elif 'Item' in future_column or 'item' in future_column or 'Desc' in future_column or 'desc' in future_column:
+                    elif 'ITEM' in future_column.upper() or 'DESC' in future_column.upper():
+                    # elif 'Item' in future_column or 'item' in future_column or 'Desc' in future_column or 'desc' in future_column:
                         name_column = 'Item_description'
                     else:
                         value = future_column
@@ -400,7 +419,7 @@ def dirt_cleaning(dirt_str: str) -> str:
 
 
 # приводим в порядок названия столбцов (первый список) и данные (остальные строки)
-def shit_in_shit_out(finish_dirty_table: dict, method: str) -> dict:
+def shit_in_shit_out(finish_dirty_table: dict, method: str, number_report: str) -> dict:
     # итоговый, очищенный, приведённый в порядок словарь {"номер таблицы": [[названия столбцов], [[данные], [данные]]]}
     finish_data = {}
     for index_table in finish_dirty_table.keys():
@@ -410,16 +429,24 @@ def shit_in_shit_out(finish_dirty_table: dict, method: str) -> dict:
         # и убирать пустые строки (картинки)
         # перебирать finish_dirty_table[index_table] построчно пока не будет найдена последняя строка содержащая 'Line' и 'Nom'
         if 'utt' in method:
-
             try:
-                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table])
+                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table], method, number_report)
                 number_row_data = number_row_name_column + 1
             except TypeError:
                 # если не найдено ни одно ключевое слово из возможных названий столбцов
+                logger_with_user.error(f'Не могу записать таблицу {index_table} репорта {number_report}. Проверь ключевые слова для поиска')
                 continue
         if 'paut' in method:
-            number_row_name_column = 1
-            number_row_data = 2
+            try:
+                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table], method, number_report) + 1
+            except TypeError:
+                # если не найдено ни одно ключевое слово из возможных названий столбцов
+                logger_with_user.error(f'Не могу записать таблицу {index_table} репорта {number_report}. Проверь ключевые слова для поиска \n'
+                                       f'{traceback.format_exc()}')
+                continue
+            # number_row_name_column = 1
+            number_row_data = number_row_name_column + 1
+            # number_row_data = 2
         finish_name_column = cleaning_name_column(finish_dirty_table[index_table][number_row_name_column], method)
         # форматируем значения данных во всех остальных строках
         finish_value_table = cleaning_value_table(finish_dirty_table[index_table][number_row_data:])
@@ -428,25 +455,45 @@ def shit_in_shit_out(finish_dirty_table: dict, method: str) -> dict:
 
 
 # поиск последнего номера строки, которая является названием столбцов перед строками с данными
-def search_number_row_name_column(table: list) -> int:
-    for index_row, row in enumerate(table):
-        # наличие в строке слова 'Line'
-        line_in_row = False
-        # наличие в строке слова 'Nominal thickness'
-        nominal_in_row = False
-        for column in row:
-            # дополнить перебор возможными словами
-            if 'LINE' in column.upper() or 'ITEM' in column.upper() or 'NORTH' in column.upper() or 'TOP' in column.upper() \
-                    or 'INTRADOS' in column.upper() or 'O\'CLOCK' in column.upper() or 'S/N' in column.upper() or 'START' in column.upper():
-                line_in_row = True
-                continue
-            if 'NOM' in column.upper():
-                nominal_in_row = True
-                continue
-        if line_in_row and nominal_in_row:
-            last_number_name_column = index_row
-            return last_number_name_column
-
+def search_number_row_name_column(table: list, method: str, number_report: str) -> int:
+    if method == 'utt':
+        for index_row, row in enumerate(table):
+            # наличие в строке слова 'Line'
+            line_in_row = False
+            # наличие в строке слова 'Nominal thickness'
+            nominal_in_row = False
+            for column in row:
+                # дополнить перебор возможными словами
+                if 'LINE' in column.upper() or 'ITEM' in column.upper() or 'NORTH' in column.upper() or 'TOP' in column.upper() \
+                        or 'INTRADOS' in column.upper() or 'O\'CLOCK' in column.upper() or 'S/N' in column.upper() or 'START' in column.upper()\
+                        or 'END' in column.upper():
+                    line_in_row = True
+                    continue
+                if 'NOM' in column.upper():
+                    nominal_in_row = True
+                    continue
+                if line_in_row and nominal_in_row:
+                    last_number_name_column = index_row
+                    return last_number_name_column
+    if method == 'paut':
+        for index_row, row in enumerate(table):
+            # наличие в строке слова 'Line'
+            line_in_row = False
+            # наличие в строке слова 'Nominal thickness'
+            nominal_in_row = False
+            for column in row:
+                # дополнить перебор возможными словами
+                if 'END' in column.upper() or 'AVERAGE' in column.upper():
+                    line_in_row = True
+                if 'NOM' in column.upper():
+                    nominal_in_row = True
+            if line_in_row and nominal_in_row:
+                last_number_name_column = index_row
+                return last_number_name_column
+            # else:
+            #     logger_with_user.error(f'Не могу записать таблицу в репорте {number_report}. Проверь ключевые слова в названиях столбцов для поиска \n'
+            #                            f'{traceback.format_exc()}')
+            #     break
 
 # приводим в порядок названия столбцов
 def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
@@ -458,7 +505,7 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
             if element.isnumeric():
                 num = True
         clock = False
-        if 'clock' in column:
+        if 'CLOCK' in column.upper():
             clock = True
         if clock and num:
             new_column = re.sub('\\s+', '', column)
@@ -499,8 +546,16 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
                     else:
                         break
         # удаляем все пробельные символы
-        if re.findall(r' ', list_dirty_name_column[i]):
-            new_column = re.sub('\\s', '', list_dirty_name_column[i])
+        if re.findall('\\s|/|.|\\(|\\)', list_dirty_name_column[i]):
+        # if re.findall('\\s', list_dirty_name_column[i]):
+            new_column = re.sub('\\s|/', '', list_dirty_name_column[i])
+            # new_column = re.sub('\\s', '', list_dirty_name_column[i])
+            list_dirty_name_column.pop(i)
+            # вставляем на удалённое место новое допустимое название столбца
+            list_dirty_name_column.insert(i, new_column)
+        # если первый символ цифра
+        if column[0].isnumeric():
+            new_column = f'_{list_dirty_name_column[i]}_'
             list_dirty_name_column.pop(i)
             # вставляем на удалённое место новое допустимое название столбца
             list_dirty_name_column.insert(i, new_column)
@@ -562,9 +617,16 @@ def check_drawing_in_line(pure_data_table: dict) -> dict:
                     pure_data_table[number_table][1][index_row].insert(0, dict_line_drawing['Line'])
                     pure_data_table[number_table][1][index_row].insert(1, dict_line_drawing['Drawing'])
                     add_column_drawing = True
-                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! TESTS
-                    # print(pure_data_table)
         # добавляем в списке названий столбцов новый столбец "Drawing" на второе место
         if add_column_drawing:
             pure_data_table[number_table][0].insert(1, 'Drawing')
     return pure_data_table
+
+
+# список номеров таблиц, которые прошли все очистки, для дальнейшего переименования порядковых номеров таблиц для записи в БД
+def take_finish_list_number_table(list_number_table: list, dict_data: dict) -> list:
+    finish_list_number = list(dict_data.keys())
+    for i in list_number_table:
+        if type(i) == str:
+            finish_list_number.insert(0, i)
+    return finish_list_number
