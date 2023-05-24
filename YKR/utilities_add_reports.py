@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from docx import Document
-# import re
 import logging
 import traceback
-import os
 import re
 from YKR.props import *
-# from YKR import props
 from collections import Counter
 
 # получаем имя машины с которой был осуществлён вход в программу
@@ -258,7 +255,6 @@ def delete_first_string(second_dirty_table: list) -> list:
         index_delete_string.sort(reverse=True)
         for index in index_delete_string:
             second_dirty_table.pop(index)
-    # print(second_dirty_table)
     return second_dirty_table
 
 
@@ -323,13 +319,10 @@ def converted_mesh(data_table_equal_row: dict, mesh_table: list, number_report: 
                             or 'DRAW' in future_column.upper() or 'ISOM' in future_column.upper():
                         name_column = 'Line'
                     elif 'DIA' in future_column.upper():
-                    # elif 'Dia' in future_column or 'dia' in future_column:
                         name_column = 'Diameter'
                     elif 'NOM' in future_column.upper():
-                    # elif 'Nom' in future_column or 'nom' in future_column:
                         name_column = 'Nominal_thickness'
                     elif 'ITEM' in future_column.upper() or 'DESC' in future_column.upper():
-                    # elif 'Item' in future_column or 'item' in future_column or 'Desc' in future_column or 'desc' in future_column:
                         name_column = 'Item_description'
                     else:
                         value = future_column
@@ -430,7 +423,7 @@ def shit_in_shit_out(finish_dirty_table: dict, method: str, number_report: str) 
         # перебирать finish_dirty_table[index_table] построчно пока не будет найдена последняя строка содержащая 'Line' и 'Nom'
         if 'utt' in method:
             try:
-                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table], method, number_report)
+                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table], method)
                 number_row_data = number_row_name_column + 1
             except TypeError:
                 # если не найдено ни одно ключевое слово из возможных названий столбцов
@@ -438,7 +431,7 @@ def shit_in_shit_out(finish_dirty_table: dict, method: str, number_report: str) 
                 continue
         if 'paut' in method:
             try:
-                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table], method, number_report) + 1
+                number_row_name_column = search_number_row_name_column(finish_dirty_table[index_table], method) + 1
             except TypeError:
                 # если не найдено ни одно ключевое слово из возможных названий столбцов
                 logger_with_user.error(f'Не могу записать таблицу {index_table} репорта {number_report}. Проверь ключевые слова для поиска \n'
@@ -455,7 +448,7 @@ def shit_in_shit_out(finish_dirty_table: dict, method: str, number_report: str) 
 
 
 # поиск последнего номера строки, которая является названием столбцов перед строками с данными
-def search_number_row_name_column(table: list, method: str, number_report: str) -> int:
+def search_number_row_name_column(table: list, method: str) -> int:
     if method == 'utt':
         for index_row, row in enumerate(table):
             # наличие в строке слова 'Line'
@@ -490,10 +483,7 @@ def search_number_row_name_column(table: list, method: str, number_report: str) 
             if line_in_row and nominal_in_row:
                 last_number_name_column = index_row
                 return last_number_name_column
-            # else:
-            #     logger_with_user.error(f'Не могу записать таблицу в репорте {number_report}. Проверь ключевые слова в названиях столбцов для поиска \n'
-            #                            f'{traceback.format_exc()}')
-            #     break
+
 
 # приводим в порядок названия столбцов
 def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
@@ -546,9 +536,8 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
                     else:
                         break
         # удаляем все пробельные символы
-        if re.findall('\\s|/|.|\\(|\\)', list_dirty_name_column[i]):
-        # if re.findall('\\s', list_dirty_name_column[i]):
-            new_column = re.sub('\\s|/', '', list_dirty_name_column[i])
+        if re.findall('\\s|/|\.|\\(|\\)', list_dirty_name_column[i]):
+            new_column = re.sub('\\s|/|\.|\\(|\\)', '', list_dirty_name_column[i])
             # new_column = re.sub('\\s', '', list_dirty_name_column[i])
             list_dirty_name_column.pop(i)
             # вставляем на удалённое место новое допустимое название столбца
@@ -566,7 +555,6 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
 def cleaning_value_table(list_dirty_value_table: list) -> list:
     for ii, row in enumerate(list_dirty_value_table):
         for i, column in enumerate(row):
-
             new_column = re.sub(',', '.', column)
             new_column = re.sub('\'+|”|"|’’', '', new_column)
             new_column = re.sub('\\s+', '_', new_column)
@@ -630,3 +618,210 @@ def take_finish_list_number_table(list_number_table: list, dict_data: dict) -> l
         if type(i) == str:
             finish_list_number.insert(0, i)
     return finish_list_number
+
+
+# есть ли столбец "Line" данных
+def check_is_line_in_data(pure_data_table: dict) -> bool:
+    line_in_data = False
+    for number_table in pure_data_table.keys():
+        for index_row, row in enumerate(pure_data_table[number_table][0]):
+            if 'Line' in row:
+                line_in_data = True
+    return line_in_data
+
+
+# ищем 'Line' в первой таблице и добавляем в итоговый словарь
+def line_from_top_to_general_data(dirty_data_report: dict, pure_data_table: dict) -> dict:
+    stop = True
+    # находим номер строки в которой есть ключевые слова 'Control', 'Object', 'Line', 'Tag'
+    if stop:
+        for number_dirty_table in dirty_data_report.keys():
+            if stop:
+                for index, row in enumerate(dirty_data_report[number_dirty_table]):
+                    if stop:
+                        for cell in row:
+                            if stop:
+                                if 'CONTR' in cell.upper() or 'OBJEC' in cell.upper() or 'LINE' in cell.upper() or 'TAG' in cell.upper():
+                                    stop = False
+                                    # номер последнего вхождения искомого ключевого слова (следующий номер - это номер линии)
+                                    index_line = dict(map(reversed, enumerate(row)))[cell]
+                                    # номер вхождения номера линии в строке
+                                    index_line += 1
+                                    # номер строки
+                                    index_row = index
+                                    break
+                            else:
+                                break
+                    else:
+                        break
+            else:
+                break
+            line_or_drawing = dirty_data_report[number_dirty_table][index_row][index_line]
+    # если это линия
+    if re.findall(r'[AАBВCСDHНMМ]'
+                  r'\d{1,2}'
+                  r'-{1,2}?\s?'
+                  r'\d{3,4}'
+                  r'-?\s?'
+                  r'\D{2}'
+                  r'-?\s?'
+                  r'\d{3}\D?'
+                  r'-?\s?'
+                  r'\d*'
+                  r'-?\s?'
+                  r'\D*\d*'
+                  r'-?\s?'
+                  r'\D*', line_or_drawing):
+        # если количество "-" не больше трёх, то это номер сосуда
+        if not line_or_drawing.count('-') > 3:
+            line = re.findall(r'[AАBВCСDHНMМ]'
+                              r'\d{1,2}'
+                              r'-{1,2}?\s?'
+                              r'\d{3,4}'
+                              r'-?\s?'
+                              r'\D{2}'
+                              r'-?\s?'
+                              r'\d{3}\D?', line_or_drawing)
+        else:
+            line = re.findall(r'[AАBВCСDHНMМ]'
+                              r'\d{1,2}'
+                              r'-{1,2}?\s?'
+                              r'\d{3,4}'
+                              r'-?\s?'
+                              r'\D{2}'
+                              r'-?\s?'
+                              r'\d{3}\D?'
+                              r'-?\s?'
+                              r'\d*'
+                              r'-?\s?'
+                              r'\D*\d*'
+                              r'-?\s?'
+                              r'\D*', line_or_drawing)
+        line = line[0].replace('\n', '')
+        # вставляем на первое место номер линии
+        for number_table in pure_data_table.keys():
+            # в названия столбцов
+            pure_data_table[number_table][0].insert(0, 'Line')
+            # в данные
+            for index, row in enumerate(pure_data_table[number_table][1]):
+                pure_data_table[number_table][1][index].insert(0, line)
+    # если это чертёж
+    if re.findall(r'KE01-.+|TR01-.+', line_or_drawing):
+        drawing = re.findall(r'KE01-.+|TR01-.+', line_or_drawing)
+        drawing = drawing[0].replace('\n', '')
+        # вставляем на второе место номер чертежа
+        for number_table in pure_data_table.keys():
+            # в названия столбцов
+            pure_data_table[number_table][0].insert(1, 'Drawing')
+            # в данные
+            for index, row in enumerate(pure_data_table[number_table][1]):
+                pure_data_table[number_table][1][index].insert(1, drawing)
+    return pure_data_table
+
+
+# удаляем Annex и Note в конце
+def clean_up_end(pure_data_table: dict) -> dict:
+    for number_table in pure_data_table.keys():
+        index_row_for_delete = list()
+        for index_row, row in enumerate(pure_data_table[number_table][1]):
+            if len(set(row)) == 1:
+                index_row_for_delete.append(index_row)
+            for cell in row:
+                if 'EXAMINED' in cell.upper():
+                    end_row = len(pure_data_table[number_table][1])
+                    # print(index_row)
+                    # print(end_row)
+                    for i in range(index_row, end_row):
+                        index_row_for_delete.append(i)
+                    break
+
+        index_row_for_delete.reverse()
+        # print(index_row_for_delete)
+        # print(pure_data_table[number_table][1])
+        # удаляем по индексу лишние, последние строки без данных
+        for delete_index in index_row_for_delete:
+            pure_data_table[number_table][1].pop(delete_index)
+        # print(pure_data_table[number_table][1])
+    return pure_data_table
+
+# определение номера unit
+def unit_definition(pure_data_table: dict, number_report: str) -> list:
+    # список линий и чертежей
+    line = list()
+    drawing = list()
+    for number_table in pure_data_table.keys():
+        for index_name_column, name_column in enumerate(pure_data_table[number_table][0]):
+            if name_column == 'Line':
+                for row in pure_data_table[number_table][1]:
+                    line.append(row[index_name_column])
+            if name_column == 'Drawing':
+                for row in pure_data_table[number_table][1]:
+                    drawing.append(row[index_name_column])
+    # убираем повторы найденных линий и чертежей
+    set_line = list(set(line))
+    set_drawing = list(set(drawing))
+    # список определённых unit-ов
+    unit_line = list()
+    unit_drawing = list()
+    # итоговый список найденных unit-ов
+    unit = list()
+    # определение, что номер линии - это сосуд
+    vessel = False
+    # выбираем номера из найденных линий и чертежей
+    if set_line:
+        for i in set_line:
+            # если количество "-" не больше трёх, то это номер сосуда
+            if not i.count('-') > 3:
+                vessel = True
+            first_hyphen = i.find('-')
+            second_hyphen = i.find('-', i.find('-') + 1)
+            if vessel:
+                if first_hyphen < 0 or second_hyphen < 0:
+                    unit_line.append(i)
+                    logger_with_user.info(f'Проверь unit в {number_report}')
+                else:
+                    unit_line.append(i[first_hyphen + 1:second_hyphen])
+            else:
+                if first_hyphen < 0 or second_hyphen < 0:
+                    unit_line.append(i)
+                    logger_with_user.info(f'Проверь unit в {number_report}')
+                else:
+                    unit_line.append(i[first_hyphen + 1:second_hyphen - 1])
+    if set_drawing:
+        for i in set_drawing:
+            second_hyphen = i.find('-', i.find('-') + 1)
+            third_hyphen = i.find('-', i.find('-', i.find('-') + 1) + 1)
+            unit_drawing.append(i[second_hyphen + 1:third_hyphen])
+    if unit_line and unit_drawing:
+        if list(set(unit_line) ^ set(unit_drawing)):
+            for i in unit_line:
+                unit.append(i)
+            logger_with_user.info(f'Проверь записанный unit в {number_report}')
+        else:
+            unit = unit_drawing
+    elif unit_line or unit_drawing:
+        if unit_line:
+            for i in unit_line:
+                unit.append(i)
+        elif unit_drawing:
+            for i in unit_drawing:
+                unit.append(i)
+    else:
+        # возвращаем пустой список
+        unit = '-'
+        logger_with_user.info(f'Проверь unit в {number_report}')
+    # убираем повторы
+    unit = list(set(unit))
+    return unit
+
+
+# 04-YKR-B4-365-ZL-112-UTT-22-01.docx выбирать данные из таблиц до annex, note отрезать лишнее снизу
+# _2_04_YKR_OF_UTT_22_017 table _2_04_YKR_OF_UTT_22_017 has 16 columns but 15 values were supplied
+# _1_04_YKR_ON_UT_19_081 в названии столбцов недопустимый символ "(" и ")"
+# _1_04_YKR_ON_UT_19_360в названии столбцов недопустимый символ "."
+
+
+# !!!!!!!!!!! проиндексировать master по столбцу 'unit' и номерам таблиц
+# Вначале определяются БД (по выбранным фильтры) в которых будет производиться поиск.
+# Для быстрого поиска в интерфейсе должно быть поле 'Unit' и оно должно быть заполнено.
+# Затем номера таблиц в master по индексам (см. выше) в которых искать.
