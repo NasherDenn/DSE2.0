@@ -20,23 +20,29 @@ def add_table():
     # def add_table(name_dir):
 
     # проверяем наличие всех БД (с 2019 по 2026 года) во всех вариациях в папке "DB"
-    no_db_in_folder = db_in_folder()
-    if no_db_in_folder:
-        for i in no_db_in_folder:
-            logger_with_user.error(f'В папке "DB" нет базы данных {i}')
-        sys.exit('В папке "DB" нет базы данных ')
+    # no_db_in_folder = db_in_folder()
+    # if no_db_in_folder:
+    #     for i in no_db_in_folder:
+    #         logger_with_user.error(f'В папке "DB" нет базы данных {i}')
+    #     sys.exit('В папке "DB" нет базы данных ')
 
     # тест, надо будет поменять
     # путь к файлам для загрузки из диалогового окна выбора
     dir_files = 'C:/Users/Андрей/Documents/NDT/Тестовые данные/'
 
     # для продакшн
-    name_dir = []
-    for (dirpath, dirnames, filenames) in os.walk(dir_files):
-        name_dir.extend(filenames)
+    # name_dir = []
+    # for (dirpath, dirnames, filenames) in os.walk(dir_files):
+    #     name_dir.extend(filenames)
 
     # тест
-    # name_dir = ['04-YKR-ON-UT-19-360 A1-690-FG-051A.docx']
+    # name_dir = ['04-YKR-A1-460-VA-004-UTT-22-01.docx']
+    # name_dir = ['04-YKR-B4-365-ZL-112-UTT-22-01.docx']
+    # name_dir = ['04-YKR-A1-331-VN-104-UTT-22-01.docx']
+    # name_dir = ['04-YKR-A1-210-VA-101-UTT-22-01.docx']
+    # name_dir = ['04-YKR-ON-PAUT-22-106 WELD (Gas1 Tr1).docx']
+    # name_dir = ['04-YKR-OF-UT-20-005.docx']
+    name_dir = ['04-YKR-OF-UT-20-059 Module 20 Line 200.docx']
 
     # список путей и названий репортов для дальнейшей обработки
     list_name_reports_for_future_work = get_name_dir(dir_files, name_dir)
@@ -67,8 +73,7 @@ def add_table():
                 # выбираем только словари (таблицы) с данными
                 # первый отбор по наличию в словаре (таблице) ключевого слова "Nominal thickness"
                 first_actual_table.append(
-                    first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table,
-                                                                      clear_rep_number['report_number'], method))
+                    first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table, clear_rep_number['report_number'], method))
             # убираем None из первого отбора
             val = None
             first_actual_table = [i for i in first_actual_table if i != val]
@@ -139,8 +144,7 @@ def add_table():
                 # выбираем только словари (таблицы) с данными
                 # первый отбор по наличию в словаре (таблице) ключевого слова "Nominal thickness"
                 first_actual_table.append(
-                    first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table,
-                                                                      clear_rep_number['report_number'], method))
+                    first_clear_table_nominal_thickness(dirty_data_report[number_dirty_table], number_dirty_table, clear_rep_number['report_number'], method))
             # убираем None из первого отбора
             val = None
             first_actual_table = [i for i in first_actual_table if i != val]
