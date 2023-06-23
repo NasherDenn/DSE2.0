@@ -5,6 +5,7 @@ import traceback
 # import sys
 # import re
 
+
 # from PyQt5.QtWidgets import *
 
 # получаем имя машины с которой был осуществлён вход в программу
@@ -24,24 +25,60 @@ def write_report_in_db(clear_report: dict, number_report: dict, name_db: str, fi
     true_number_report = true_number_report.replace('.', '_')
     # подключаемся к БД
     conn = sqlite3.connect(f'{os.path.abspath(os.getcwd())}\\DB\\{name_db}')
+    # включаем поддержку внешних ключей
+    conn.execute('''PRAGMA foreign_keys = ON''')
+    conn.commit()
     cur = conn.cursor()
+    # включаем поддержку внешних ключей
+    # cur.execute('''PRAGMA foreign_keys = ON''')
+
+    # создаём таблицу master со столбцами из clear_rep_number, количества таблиц, списка таблиц ЕСЛИ ещё не существует
+    if not cur.execute('''SELECT * FROM sqlite_master WHERE type="table" AND name="master"''').fetchall():
+        cur.execute('''CREATE TABLE IF NOT EXISTS master (unit, report_number PRIMARY KEY, report_date, work_order, one_of, list_table_report)''')
+        conn.commit()
+        # создаём индекс
+        cur.execute('''CREATE INDEX id ON master (unit)''')
+        conn.commit()
     for number_table in clear_report.keys():
-        can_write_rep_number_in_master = False
+        # can_write_rep_number_in_master = False
         # собираем имя таблицы для записи
         name_table_for_write = f'_{number_table}_{true_number_report}'
+
+        write_rep_number_in_master(number_report, first_actual_table, name_table_for_write, name_db, unit)
+
         if not cur.execute('''SELECT * FROM sqlite_master WHERE  tbl_name="{}"'''.format(name_table_for_write)).fetchone():
             try:
-                cur.execute('''CREATE TABLE IF NOT EXISTS {} ({})'''.format(name_table_for_write, ','.join(clear_report[number_table][0])))
+                # добавляем в названия столбцов на первое место number_report
+                # cur.execute('''CREATE TABLE IF NOT EXISTS {} ({})'''.format(name_table_for_write, ','.join(clear_report[number_table][0])))
+
+                rep = f'number_report, {",".join(clear_report[number_table][0])}, FOREIGN KEY(number_report) REFERENCES master(report_number) ON UPDATE CASCADE'
+                # rep = f'number_report, {",".join(clear_report[number_table][0])}, FOREIGN KEY(number_report) REFERENCES master(report_number)'
+                print(name_table_for_write)
+                print(rep)
+                cur.execute('''CREATE TABLE IF NOT EXISTS {} ({})'''.format(name_table_for_write, rep))
+                # FOREIGN KEY(k) REFERENCES sss(a)
+                # print('ok')
+
+
                 conn.commit()
             except sqlite3.OperationalError:
                 logger_with_user.error(f'В репорте {number_report["report_number"]} таблице {name_table_for_write} какая-то ошибка! А именно:\n'
                                        f'{traceback.format_exc()}')
+                # no such table: main.master
+
                 continue
             for values in clear_report[number_table][1]:
                 try:
+                    # print(values)
+                    values.insert(0, number_report["report_number"])
+                    # print(values)
+
+                    # print(number_report["report_number"])
+
                     cur.execute('INSERT INTO ' + name_table_for_write + ' VALUES (%s)' % ','.join('?' * len(values)), values)
                     conn.commit()
-                    can_write_rep_number_in_master = True
+                    # can_write_rep_number_in_master = True
+
                 except sqlite3.OperationalError:
                     logger_with_user.error(f'В репорте {number_report["report_number"]} таблице {name_table_for_write} какая-то ошибка! А именно:\n'
                                            f'{traceback.format_exc()}')
@@ -51,62 +88,77 @@ def write_report_in_db(clear_report: dict, number_report: dict, name_db: str, fi
         # first_actual_table - словарь номеров таблиц в которых есть необходимые данные
         # name_table_for_write - имя таблицы
         # name_db - имя БД для записи
-        if can_write_rep_number_in_master:
-            write_rep_number_in_master(number_report, first_actual_table, name_table_for_write, name_db, unit)
-            # print(number_report["report_number"])
-            # print(unit)
+
+        # if can_write_rep_number_in_master:
+        #     write_rep_number_in_master(number_report, first_actual_table, name_table_for_write, name_db, unit)
     cur.close()
 
 
-# запись в таблицу master номера репорта, wo, даты, количества таблиц в репорте
+# запись в таблицу master unit, номера репорта, wo, даты, количества таблиц в репорте
 def write_rep_number_in_master(number_report: dict, count_table: list, name_table: str, name_db: str, unit: list):
     # форматируем номер таблицы для лучшей визуализации (меняем "_" на "-")
     name_table = name_table.replace("_", "-")[1:]
     # подключаемся к БД
     conn = sqlite3.connect(f'{os.path.abspath(os.getcwd())}\\DB\\{name_db}')
     cur = conn.cursor()
-    # создаём таблицу master со столбцами из clear_rep_number, количества таблиц, списка таблиц
-    cur.execute('CREATE TABLE IF NOT EXISTS master (unit, report_number, report_date, work_order, one_of, list_table_report)')
-    for unit_index in unit:
-        # если в master нет такого номера репорта, то записываем его первым со значение one_of (1/...) и номером таблицы
-        if not cur.execute('''SELECT * FROM master WHERE report_number="{}"'''.format(number_report['report_number'])).fetchone():
-            cur.execute('INSERT INTO master VALUES (?, ?, ?, ?, ?, ?)',
-                        (unit_index,
-                         number_report['report_number'],
-                         number_report['report_date'],
-                         number_report['work_order'],
-                         f'1/{len(count_table)}',
-                         name_table))
+
+
+    # # создаём таблицу master со столбцами из clear_rep_number, количества таблиц, списка таблиц ЕСЛИ ещё не существует
+    # if not cur.execute('''SELECT * FROM sqlite_master WHERE type="table" AND name="master"''').fetchall():
+    #     cur.execute('''CREATE TABLE IF NOT EXISTS master (unit, report_number, report_date, work_order, one_of, list_table_report)''')
+    #     conn.commit()
+    #     # создаём индекс
+    #     cur.execute('''CREATE INDEX id ON master (unit)''')
+    #     conn.commit()
+
+
+    # если в master нет такого номера репорта, то записываем его первым со значение one_of (1/...) и номером таблицы
+    if not cur.execute('''SELECT * FROM master WHERE report_number="{}"'''.format(number_report['report_number'])).fetchone():
+        cur.execute('INSERT INTO master VALUES (?, ?, ?, ?, ?, ?)',
+                    (unit,
+                     number_report['report_number'],
+                     number_report['report_date'],
+                     number_report['work_order'],
+                     f'1/{len(count_table)}',
+                     name_table))
+        conn.commit()
+    # иначе проверяем номер unit
+    else:
+        # если номер unit такой же, то обновляем строчку с записью в master
+        if unit == cur.execute('''SELECT unit FROM master WHERE report_number = "{}"'''.format(number_report['report_number'])).fetchall()[0][0]:
+            # пересчитываем и переписываем one_of и дописываем list_table_report номером новой таблицы
+            old_one_of = cur.execute('''SELECT one_of FROM master WHERE report_number = "{}"'''.format(number_report['report_number'])).fetchall()[0][0]
+            index_slash_old_one_of = old_one_of.find('/')
+            old_one_of_left_slash = int(old_one_of[:index_slash_old_one_of])
+            new_one_of_left_slash = str(old_one_of_left_slash + 1)
+            update_one_of = f'{new_one_of_left_slash}{old_one_of[index_slash_old_one_of:]}'
+            old_list_table_report = cur.execute('''SELECT list_table_report FROM master WHERE report_number = "{}"'''
+                                                .format(number_report['report_number'])).fetchall()[0][0]
+            update_list_table_report = f'{old_list_table_report}\n{name_table}'
+            # print(update_one_of)
+            # print(update_list_table_report)
+            # print(number_report['report_number'])
+            # print(unit)
+            cur.execute('''UPDATE  master set one_of='{}', list_table_report='{}' WHERE report_number="{}" AND unit="{}"'''
+                        .format(update_one_of,
+                                update_list_table_report,
+                                number_report['report_number'],
+                                unit))
             conn.commit()
-        # иначе проверяем номер unit
+        # иначе записываем новую строчку
         else:
-            # если номер unit такой же, то обновляем строчку с записью в master
-            if unit_index == cur.execute('''SELECT unit FROM master WHERE report_number = "{}"'''.format(number_report['report_number'])).fetchall()[0][0]:
-                # пересчитываем и переписываем one_of и дописываем list_table_report номером новой таблицы
-                old_one_of = cur.execute('''SELECT one_of FROM master WHERE report_number = "{}"'''.format(number_report['report_number'])).fetchall()[0][0]
-                index_slash_old_one_of = old_one_of.find('/')
-                old_one_of_left_slash = int(old_one_of[:index_slash_old_one_of])
-                new_one_of_left_slash = str(old_one_of_left_slash + 1)
-                update_one_of = f'{new_one_of_left_slash}{old_one_of[index_slash_old_one_of:]}'
-                old_list_table_report = cur.execute('''SELECT list_table_report FROM master WHERE report_number = "{}"'''
-                                                    .format(number_report['report_number'])).fetchall()[0][0]
-                update_list_table_report = f'{old_list_table_report}\n{name_table}'
-                cur.execute('''UPDATE  master set one_of='{}', list_table_report='{}' WHERE report_number="{}" AND unit="{}"'''
-                            .format(update_one_of,
-                                    update_list_table_report,
-                                    number_report['report_number'],
-                                    unit_index))
-                conn.commit()
-            # иначе записываем новую строчку
-            else:
+            try:
                 cur.execute('INSERT INTO master VALUES (?, ?, ?, ?, ?, ?)',
-                            (unit_index,
+                            (unit,
                              number_report['report_number'],
                              number_report['report_date'],
                              number_report['work_order'],
                              f'1/{len(count_table)}',
                              name_table))
                 conn.commit()
+            except sqlite3.IntegrityError:
+                logger_with_user.error(f'Проверь данные для записи в репорте {number_report}.\n'
+                                       f'{traceback.format_exc()}')
     cur.close()
 
 
