@@ -488,6 +488,7 @@ def search_number_row_name_column(table: list, method: str) -> int:
 # приводим в порядок названия столбцов
 def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
     for i, column in enumerate(list_dirty_name_column):
+        # print(column)
         stop = True
         # если в названии столбца указаны "часы"
         num = False
@@ -542,12 +543,25 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
             list_dirty_name_column.pop(i)
             # вставляем на удалённое место новое допустимое название столбца
             list_dirty_name_column.insert(i, new_column)
-        # если первый символ цифра
-        if column[0].isnumeric():
-            new_column = f'_{list_dirty_name_column[i]}_'
+
+        print(column)
+        if column == '':
+            print(column)
+            column = 'NA'
             list_dirty_name_column.pop(i)
-            # вставляем на удалённое место новое допустимое название столбца
-            list_dirty_name_column.insert(i, new_column)
+            list_dirty_name_column.insert(i, column)
+
+
+        # если первый символ цифра
+        if column != '':
+            if column[0].isnumeric():
+                new_column = f'_{list_dirty_name_column[i]}_'
+                list_dirty_name_column.pop(i)
+                # вставляем на удалённое место новое допустимое название столбца
+                list_dirty_name_column.insert(i, new_column)
+        else:
+            logger_with_user.error(f'Проверь названия стобцов {traceback.format_exc()}')
+
     return list_dirty_name_column
 
 
@@ -744,8 +758,10 @@ def clean_up_end(pure_data_table: dict) -> dict:
         # print(pure_data_table[number_table][1])
     return pure_data_table
 
+
 # определение номера unit
 def unit_definition(pure_data_table: dict, number_report: str) -> list:
+    print(number_report)
     # список линий и чертежей
     line = list()
     drawing = list()
@@ -811,17 +827,24 @@ def unit_definition(pure_data_table: dict, number_report: str) -> list:
         unit = '-'
         logger_with_user.info(f'Проверь unit в {number_report}')
     # убираем повторы
+    # print(unit)
     unit = list(set(unit))
+    # избавляемся от ложных unit-ов - только трёхзначное число
+    if len(unit) > 1:
+        for i in unit:
+            if len(i) > 2 and i.isnumeric():
+                unit = i[:3]
+    else:
+        # print(type(unit))
+        if not unit == ['-']:
+            # print(unit)
+            unit = str(unit[0])
+        else:
+            unit = '-'
+    # print(unit)
     return unit
 
 
-# 04-YKR-B4-365-ZL-112-UTT-22-01.docx выбирать данные из таблиц до annex, note отрезать лишнее снизу
-# _2_04_YKR_OF_UTT_22_017 table _2_04_YKR_OF_UTT_22_017 has 16 columns but 15 values were supplied
-# _1_04_YKR_ON_UT_19_081 в названии столбцов недопустимый символ "(" и ")"
-# _1_04_YKR_ON_UT_19_360в названии столбцов недопустимый символ "."
-
-
-# !!!!!!!!!!! проиндексировать master по столбцу 'unit' и номерам таблиц
 # Вначале определяются БД (по выбранным фильтры) в которых будет производиться поиск.
 # Для быстрого поиска в интерфейсе должно быть поле 'Unit' и оно должно быть заполнено.
 # Затем номера таблиц в master по индексам (см. выше) в которых искать.
