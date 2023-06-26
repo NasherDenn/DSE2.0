@@ -543,15 +543,10 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
             list_dirty_name_column.pop(i)
             # вставляем на удалённое место новое допустимое название столбца
             list_dirty_name_column.insert(i, new_column)
-
-        print(column)
         if column == '':
-            print(column)
             column = 'NA'
             list_dirty_name_column.pop(i)
             list_dirty_name_column.insert(i, column)
-
-
         # если первый символ цифра
         if column != '':
             if column[0].isnumeric():
@@ -560,8 +555,7 @@ def cleaning_name_column(list_dirty_name_column: list, method: str) -> list:
                 # вставляем на удалённое место новое допустимое название столбца
                 list_dirty_name_column.insert(i, new_column)
         else:
-            logger_with_user.error(f'Проверь названия стобцов {traceback.format_exc()}')
-
+            logger_with_user.error(f'Проверь названия столбцов {traceback.format_exc()}')
     return list_dirty_name_column
 
 
@@ -645,7 +639,7 @@ def check_is_line_in_data(pure_data_table: dict) -> bool:
 
 
 # ищем 'Line' в первой таблице и добавляем в итоговый словарь
-def line_from_top_to_general_data(dirty_data_report: dict, pure_data_table: dict) -> dict:
+def line_from_top_to_general_data(dirty_data_report: dict, pure_data_table: dict, report_number: str) -> dict:
     stop = True
     # находим номер строки в которой есть ключевые слова 'Control', 'Object', 'Line', 'Tag'
     if stop:
@@ -656,6 +650,9 @@ def line_from_top_to_general_data(dirty_data_report: dict, pure_data_table: dict
                         for cell in row:
                             if stop:
                                 if 'CONTR' in cell.upper() or 'OBJEC' in cell.upper() or 'LINE' in cell.upper() or 'TAG' in cell.upper():
+
+
+
                                     stop = False
                                     # номер последнего вхождения искомого ключевого слова (следующий номер - это номер линии)
                                     index_line = dict(map(reversed, enumerate(row)))[cell]
@@ -670,7 +667,12 @@ def line_from_top_to_general_data(dirty_data_report: dict, pure_data_table: dict
                         break
             else:
                 break
-            line_or_drawing = dirty_data_report[number_dirty_table][index_row][index_line]
+            try:
+                line_or_drawing = dirty_data_report[number_dirty_table][index_row][index_line]
+            except:
+                logger_with_user.error(f'В репорте {report_number} таблице {number_dirty_table} какая-то ошибка! А именно:\n'
+                                       f'{traceback.format_exc()}')
+
     # если это линия
     if re.findall(r'[AАBВCСDHНMМ]'
                   r'\d{1,2}'
