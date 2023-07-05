@@ -31,9 +31,9 @@ def add_table():
     dir_files = 'C:/Users/Андрей/Documents/NDT/Тестовые данные/'
 
     # для продакшн
-    # name_dir = []
-    # for (dirpath, dirnames, filenames) in os.walk(dir_files):
-    #     name_dir.extend(filenames)
+    name_dir = []
+    for (dirpath, dirnames, filenames) in os.walk(dir_files):
+        name_dir.extend(filenames)
 
     # тест
     # name_dir = ['04-YKR-A1-460-VA-004-UTT-22-01.docx']
@@ -42,7 +42,7 @@ def add_table():
     # name_dir = ['04-YKR-A1-210-VA-101-UTT-22-01.docx']
     # name_dir = ['04-YKR-ON-PAUT-22-106 WELD (Gas1 Tr1).docx']
     # name_dir = ['04-YKR-OF-UT-20-005.docx']
-    name_dir = ['04-YKR-OF-UT-20-059 Module 20 Line 200.docx']
+    # name_dir = ['04-YKR-OF-UT-20-059 Module 20 Line 200.docx']
 
     # список путей и названий репортов для дальнейшей обработки
     list_name_reports_for_future_work = get_name_dir(dir_files, name_dir)
@@ -127,14 +127,15 @@ def add_table():
             pure_data_table = clean_up_end(pure_data_table)
             # проверяем есть ли столбец "Line", если нет, ищем его в первой таблице и добавляем в итоговый словарь
             if not check_is_line_in_data(pure_data_table):
-                pure_data_table = line_from_top_to_general_data(dirty_data_report, pure_data_table)
+                pure_data_table = line_from_top_to_general_data(dirty_data_report, pure_data_table, clear_rep_number['report_number'])
 
             # ЗДЕСЬ ИТОГОВЫЕ ДАННЫЕ ДЛЯ ЗАПИСИ В БД - pure_data_table
 
             # определение номера unit
             unit = unit_definition(pure_data_table, clear_rep_number['report_number'])
             # записываем очищенный репорт в базу данных
-            # передаём очищенные, переименованные таблицы, номер репорта, имя БД для записи
+            # передаём очищенные таблицы, номер репорта, имя БД для записи, номер таблицы в репорте для записи, unit
+
             write_report_in_db(pure_data_table, clear_rep_number, name_reports_db, first_actual_table, unit)
 
         if '-PAUT-' in clear_rep_number['report_number']:
@@ -191,14 +192,15 @@ def add_table():
             pure_data_table = clean_up_end(pure_data_table)
             # проверяем есть ли столбец "Line", если нет, ищем его в первой таблице и добавляем в итоговый словарь
             if not check_is_line_in_data(pure_data_table):
-                pure_data_table = line_from_top_to_general_data(dirty_data_report, pure_data_table)
+                pure_data_table = line_from_top_to_general_data(dirty_data_report, pure_data_table, clear_rep_number['report_number'])
 
             # ЗДЕСЬ ИТОГОВЫЕ ДАННЫЕ ДЛЯ ЗАПИСИ В БД - pure_data_table
 
             # определение номера unit
             unit = unit_definition(pure_data_table, clear_rep_number['report_number'])
             # записываем очищенный репорт в базу данных
-            # передаём очищенные, переименованные таблицы, номер репорта, имя БД для записи
+            # передаём очищенные таблицы, номер репорта, имя БД для записи, номер таблицы в репорте для записи, unit
+
             write_report_in_db(pure_data_table, clear_rep_number, name_reports_db, first_actual_table, unit)
 
 

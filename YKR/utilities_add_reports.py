@@ -582,10 +582,17 @@ def duplicate_name_column(pure_data_table: dict) -> dict:
         for count_duplicate_name_column in all_count.keys():
             if int(all_count[count_duplicate_name_column]) > 1:
                 index = 1
+                first_duplicate = True
                 for index_column, column in enumerate(pure_data_table[number_table][0]):
                     if column == count_duplicate_name_column:
-                        pure_data_table[number_table][0][index_column] = f'{column}_{index}'
-                        index += 1
+                        # если это первый дубликат, то пропускаем его (оставляем его название неизменным)
+                        if first_duplicate:
+                            first_duplicate = False
+                            continue
+                        # иначе добавляем номер в конце для корректной записи в БД
+                        else:
+                            pure_data_table[number_table][0][index_column] = f'{column}_{index}'
+                            index += 1
     return pure_data_table
 
 
@@ -650,9 +657,6 @@ def line_from_top_to_general_data(dirty_data_report: dict, pure_data_table: dict
                         for cell in row:
                             if stop:
                                 if 'CONTR' in cell.upper() or 'OBJEC' in cell.upper() or 'LINE' in cell.upper() or 'TAG' in cell.upper():
-
-
-
                                     stop = False
                                     # номер последнего вхождения искомого ключевого слова (следующий номер - это номер линии)
                                     index_line = dict(map(reversed, enumerate(row)))[cell]
@@ -745,25 +749,19 @@ def clean_up_end(pure_data_table: dict) -> dict:
             for cell in row:
                 if 'EXAMINED' in cell.upper():
                     end_row = len(pure_data_table[number_table][1])
-                    # print(index_row)
-                    # print(end_row)
                     for i in range(index_row, end_row):
                         index_row_for_delete.append(i)
                     break
 
         index_row_for_delete.reverse()
-        # print(index_row_for_delete)
-        # print(pure_data_table[number_table][1])
         # удаляем по индексу лишние, последние строки без данных
         for delete_index in index_row_for_delete:
             pure_data_table[number_table][1].pop(delete_index)
-        # print(pure_data_table[number_table][1])
     return pure_data_table
 
 
 # определение номера unit
 def unit_definition(pure_data_table: dict, number_report: str) -> list:
-    print(number_report)
     # список линий и чертежей
     line = list()
     drawing = list()
@@ -829,7 +827,6 @@ def unit_definition(pure_data_table: dict, number_report: str) -> list:
         unit = '-'
         logger_with_user.info(f'Проверь unit в {number_report}')
     # убираем повторы
-    # print(unit)
     unit = list(set(unit))
     # избавляемся от ложных unit-ов - только трёхзначное число
     if len(unit) > 1:
@@ -837,16 +834,8 @@ def unit_definition(pure_data_table: dict, number_report: str) -> list:
             if len(i) > 2 and i.isnumeric():
                 unit = i[:3]
     else:
-        # print(type(unit))
         if not unit == ['-']:
-            # print(unit)
             unit = str(unit[0])
         else:
             unit = '-'
-    # print(unit)
     return unit
-
-
-# Вначале определяются БД (по выбранным фильтры) в которых будет производиться поиск.
-# Для быстрого поиска в интерфейсе должно быть поле 'Unit' и оно должно быть заполнено.
-# Затем номера таблиц в master по индексам (см. выше) в которых искать.

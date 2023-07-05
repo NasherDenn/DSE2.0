@@ -83,7 +83,8 @@ line_search_line.setEchoMode(QLineEdit.Normal)
 line_search_line.setCursorPosition(0)
 line_search_line.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search_line.setClearButtonEnabled(True)
-line_search_line.setText('28278087')
+# line_search_line.setText('A1-331-VN-104')
+line_search_line.setText('')
 line_search_line.setFocus()
 
 # создаём однострочное поле для ввода номера чертежа
@@ -104,7 +105,8 @@ line_search_drawing.setEchoMode(QLineEdit.Normal)
 line_search_drawing.setCursorPosition(0)
 line_search_drawing.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search_drawing.setClearButtonEnabled(True)
-line_search_drawing.setText('')
+line_search_drawing.setText('KE01-A1-330-PG-P-DI-1049-009')
+# line_search_drawing.setText('')
 
 # создаём однострочное поле для ввода номера юнита
 line_search_unit = QLineEdit(window)
@@ -124,6 +126,7 @@ line_search_unit.setEchoMode(QLineEdit.Normal)
 line_search_unit.setCursorPosition(0)
 line_search_unit.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search_unit.setClearButtonEnabled(True)
+# line_search_unit.setText('200')
 line_search_unit.setText('')
 
 # создаём однострочное поле для ввода номера локации
@@ -144,7 +147,8 @@ line_search_item_description.setEchoMode(QLineEdit.Normal)
 line_search_item_description.setCursorPosition(0)
 line_search_item_description.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search_item_description.setClearButtonEnabled(True)
-line_search_item_description.setText('')
+line_search_item_description.setText('CML-03_Reducer')
+# line_search_item_description.setText('N2')
 
 # создаём однострочное поле для ввода номера репорта
 line_search_number_report = QLineEdit(window)
@@ -164,6 +168,7 @@ line_search_number_report.setEchoMode(QLineEdit.Normal)
 line_search_number_report.setCursorPosition(0)
 line_search_number_report.setCursorMoveStyle(Qt.LogicalMoveStyle)
 line_search_number_report.setClearButtonEnabled(True)
+# line_search_number_report.setText('04-YKR-ON-UT-22-064')
 line_search_number_report.setText('')
 
 # создаём кнопку "Поиск"
@@ -446,7 +451,8 @@ scroll_area.setObjectName(u'Scroll_Area')
 scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 # задаём размер области с полосой прокрутки
-scroll_area.setGeometry(20, 245, 1681, 650)
+scroll_area.setGeometry(20, 245, 1685, 650)
+# scroll_area.setGeometry(20, 245, 1680, 650)
 
 # создаём группу из чек-бокса 'ON', 'OF', 'OS'
 groupBox_location = QGroupBox(window)
@@ -458,6 +464,7 @@ groupBox_location.setTitle('Локация')
 groupBox_location.setStyleSheet('''QGroupBox {border: 0.5px solid grey;};
                                    QGroupBox:title{
                                    subcontrol-origin: margin;
+                                   # subcontrol-origin: margin;
                                    subcontrol-position: top center;
                                    padding: 0 3px 0 3px;
                                 }''')
@@ -717,63 +724,66 @@ def search():
             'Вы не ввели данные для поиска или не выбрали не один фильтр',
             buttons=QMessageBox.Ok
         )
-        return
     # собираем названия БД, по выбранным фильтрам, в которых надо искать данные
     db_for_search = define_db_for_search(data_filter_for_search)
     # получаем значения из полей для ввода
     values_for_search = dict()
-    # путь поиска, в зависимости от количества заполненных полей для поиска
-    search_path = 0
     values_for_search['line'] = line_search_line.text()
-    if line_search_line.text():
-        search_path += 1
     values_for_search['drawing'] = line_search_drawing.text()
-    if line_search_drawing.text():
-        search_path += 1
     values_for_search['unit'] = line_search_unit.text()
-    if line_search_unit.text():
-        search_path += 1
     values_for_search['item_description'] = line_search_item_description.text()
-    if line_search_item_description.text():
-        search_path += 1
     values_for_search['number_report'] = line_search_number_report.text()
-    if line_search_number_report.text():
-        search_path += 1
-    print(db_for_search)
     print(values_for_search)
-    print(search_path)
     # ищем данные в БД
-    table_for_view = look_up_data(db_for_search, values_for_search, search_path)
+    table_for_view = look_up_data(db_for_search, values_for_search)
 
 
 
     # !!!!!!!!! создание фрейма и помещение его в область для вывода сделать отдельной функцией
     # !!!!!!!!! расчёты размеров для отображения найденных данных отельной функцией
 
-    # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса прокрутки
-    frame_for_table = QFrame()
-    # помещаем frame в область с полосой прокрутки
-    scroll_area.setWidget(frame_for_table)
-    # задаём размер frame
-    frame_for_table.setGeometry(0, 0, 1681, 200)
-    frame_for_table.show()
-    # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
-    table_view = QTableView(frame_for_table)
-    # создаём модель
-    sqm = QSqlQueryModel(parent=window)
-    # устанавливаем ширину столбцов под содержимое
-    table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-    # устанавливаем высоту столбцов под содержимое
-    table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-    # устанавливаем разный цвет фона для чётных и нечётных строк
-    table_view.setAlternatingRowColors(True)
-    table_view.setModel(sqm)
+    # если нашли данные, то выводим их на экран
+    if table_for_view:
+
+        for i in table_for_view:
+            print(i)
+
+        # frame в который будут вставляться, таблицы чтобы при большом количестве таблиц появлялась полоса прокрутки
+        frame_for_table = QFrame()
+        # помещаем frame в область с полосой прокрутки
+        scroll_area.setWidget(frame_for_table)
+        # задаём размер frame
+        frame_for_table.setGeometry(0, 0, 1681, 200)
+        frame_for_table.show()
+        # задаём поле для вывода данных из базы данных, размещённую в области с полосой прокрутки
+        table_view = QTableView(frame_for_table)
+        # создаём модель
+        sqm = QSqlQueryModel(parent=window)
+        # устанавливаем ширину столбцов под содержимое
+        table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        # устанавливаем высоту столбцов под содержимое
+        table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        # устанавливаем разный цвет фона для чётных и нечётных строк
+        table_view.setAlternatingRowColors(True)
+        table_view.setModel(sqm)
 
 
-    
-    # выводим данные в форму из найденных таблиц
-    # sqm.setQuery('SELECT * FROM {} WHERE line LIKE "%{}%"'.format(table_for_search_line[i], line_for_search))
 
+        # выводим данные в форму из найденных таблиц
+        # sqm.setQuery('SELECT * FROM {} WHERE line LIKE "%{}%"'.format(table_for_search_line[i], line_for_search))
+
+        table_view.showGrid()
+        scroll_area.show()
+        # table_view.show(table_for_view[0])
+
+
+    # сообщение о том, что ничего не найдено
+    else:
+        QMessageBox.information(
+            window,
+            'Упс',
+            'Ничего не найдено!'
+        )
 
 
 # нажатие кнопки "Войти"
